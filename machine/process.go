@@ -9,11 +9,12 @@ import (
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"os"
 )
 
 const (
 	// TODO configure with flag
-	logsDir = "/home/jumper/go-code/src/github.com/evoevodin/machine-agent"
+	// logsDir = "src/github.com/evoevodin/machine-agent"
 	stdoutPrefix = "[STDOUT] "
 	stderrPrefix = "[STDERR] "
 )
@@ -69,6 +70,12 @@ func StartProcess(newProcess *NewProcess) (*MachineProcess, error) {
 	// increment current pid & assign it to the value
 	pid := atomic.AddUint64(&currentPid, 1)
 
+	// FIXME: remove as it will be configurable with a flag
+	logsDir := os.Getenv("GOPATH") + "/src/github.com/evoevodin/machine-agent/logs"
+	fmt.Println(logsDir)
+	if _, err := os.Stat(logsDir); os.IsNotExist(err) {
+		os.MkdirAll(logsDir, 0777)
+	}
 	fileLogger := &FileLogger{
 		filename: logsDir + "/" + strconv.Itoa(int(pid)),
 	}
