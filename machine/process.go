@@ -15,8 +15,6 @@ import (
 const (
 	// TODO configure with flag
 	// logsDir = "src/github.com/evoevodin/machine-agent"
-	stdoutPrefix = "[STDOUT] "
-	stderrPrefix = "[STDERR] "
 )
 
 type NewProcess struct {
