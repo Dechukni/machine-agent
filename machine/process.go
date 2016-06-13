@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"syscall"
 )
 
 const (
@@ -44,7 +45,8 @@ var (
 )
 
 func StartProcess(newProcess *NewProcess) (*MachineProcess, error) {
-	cmd := exec.Command("sh", "-c", newProcess.CommandLine)
+	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
+	cmd := exec.Command("setsid", "sh", "-c", newProcess.CommandLine)
 
 	// getting stdout pipe
 	stdout, err := cmd.StdoutPipe()
@@ -114,7 +116,8 @@ func KillProcess(pid uint64) error {
 	defer processes.Unlock()
 	process, ok := processes.items[pid]
 	if ok {
-		return process.command.Process.Kill()
+		// workaround for killing child processes see https://github.com/golang/go/issues/8854
+		return syscall.Kill(-process.NativePid, syscall.SIGKILL)
 	}
 	return errors.New("No process with id " + strconv.Itoa(int(pid)))
 }

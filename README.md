@@ -1,6 +1,5 @@
 TODO
 
-- Kill child processes along with a parent
 - Versioning
 - Logs lifecycle
 - Logs paging
