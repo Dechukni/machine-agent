@@ -4,9 +4,9 @@ package machine
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"sync"
+	"log"
 )
 
 type acceptLine func(line string)
@@ -67,7 +67,7 @@ func pump(r io.Reader, lineConsumer acceptLine, wg *sync.WaitGroup) {
 		if err != nil {
 			// handle not normal exit
 			if err != io.EOF {
-				fmt.Println("Error pumping: " + err.Error())
+				log.Println("Error pumping: " + err.Error())
 			}
 			return
 		}

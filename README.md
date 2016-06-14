@@ -2,14 +2,11 @@ TODO
 
 - Versioning
 - Logs lifecycle
-- Logs paging
-- Improve logging to file
+- Logs paging(time based, limits based)
+- Improve logging to file(see TODOs on top of logger file)
 - Flags for configuration like(logs base folder, server host:port etc)
-- Plugin terminal into the infrastructure
-- Add websocket logs streaming
-- Notify clients (IDE, Dashboard) about events(eventbus?)
-- Cleanup not-alive processes
-- Events log along with process output log
+- Plug in terminal into the infrastructure
+- When to cleanup not-alive processes
 - Cleanup/Restore processes when machine restored from snapshot
-- Consider using `log` instead of `fmt` for errors
-- Websocket streaming strategy & logs model
+- Websocket streaming strategy & logs/events model
+- Websocket messages order

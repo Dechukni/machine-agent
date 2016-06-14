@@ -4,17 +4,17 @@ package machine
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
-	"os"
 )
 
 const (
-	// TODO configure with flag
-	// logsDir = "src/github.com/evoevodin/machine-agent"
+// TODO configure with flag
+// logsDir = "src/github.com/evoevodin/machine-agent"
 )
 
 type NewProcess struct {
@@ -31,6 +31,7 @@ type MachineProcess struct {
 
 	command     *exec.Cmd
 	pumper      *LogsPumper
+	fileLogger  *FileLogger
 }
 
 type MachineProcessMap struct {
@@ -74,8 +75,10 @@ func StartProcess(newProcess *NewProcess) (*MachineProcess, error) {
 	if _, err := os.Stat(logsDir); os.IsNotExist(err) {
 		os.MkdirAll(logsDir, 0777)
 	}
-	fileLogger := &FileLogger{
-		filename: logsDir + "/" + strconv.Itoa(int(pid)),
+
+	fileLogger, err := NewLogger(logsDir + "/" + strconv.Itoa(int(pid)))
+	if err != nil {
+		return nil, err
 	}
 
 	pumper := NewPumper(stdout, stderr)
@@ -95,6 +98,7 @@ func StartProcess(newProcess *NewProcess) (*MachineProcess, error) {
 		cmd.Process.Pid,
 		cmd,
 		pumper,
+		fileLogger,
 	}
 	processes.Lock()
 	processes.items[pid] = process
@@ -125,6 +129,30 @@ func KillProcess(pid uint64) error {
 		return syscall.Kill(-process.NativePid, syscall.SIGKILL)
 	}
 	return errors.New("No process with id " + strconv.Itoa(int(pid)))
+}
+
+func ReadProcessLogs(pid uint64) ([]string, error) {
+	processes.RLock()
+	defer processes.RUnlock()
+
+	// Getting process
+	process, ok := processes.items[pid]
+	if !ok {
+		return nil, errors.New("No process with id " + strconv.Itoa(int(pid)))
+	}
+
+	// Getting process logs
+	logs, err := process.fileLogger.ReadLogs()
+	if err != nil {
+		return nil, err
+	}
+
+	// Transforming process logs
+	formattedLogs := make([]string, len(logs))
+	for idx, item := range logs {
+		formattedLogs[idx] = fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time, item.Text)
+	}
+	return formattedLogs, nil
 }
 
 func setDead(pid uint64) {

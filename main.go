@@ -33,10 +33,10 @@ func main() {
 		fmt.Println()
 	}
 
-	// TODO this is fake process for testing purposes remove it from here
+	// TODO this is test process for testing purposes remove it from here
 	_, err := machine.StartProcess(&machine.NewProcess{"ping test", "ping google.com"})
 	if err != nil {
-		fmt.Println("Error: ", err)
+		log.Println("Error: ", err)
 	}
 
 	log.Fatal(http.ListenAndServe(":8080", router))

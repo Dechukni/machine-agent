@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	maxNameLen = 15
+	maxNameLen   = 15
 	maxMethodLen = len("DELETE")
 )
 
@@ -24,7 +24,7 @@ type RoutesGroup struct {
 }
 
 func (r *Route) String() string {
-	name := r.Name + strings.Repeat(" ", maxNameLen - len(r.Name))
-	method := r.Method + strings.Repeat(" ", maxMethodLen - len(r.Method))
+	name := r.Name + strings.Repeat(" ", maxNameLen-len(r.Name))
+	method := r.Method + strings.Repeat(" ", maxMethodLen-len(r.Method))
 	return fmt.Sprintf("%s\t%s\t%s", name, method, r.Path)
 }

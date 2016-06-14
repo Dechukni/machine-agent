@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/evoevodin/machine-agent/route"
 	"github.com/gorilla/mux"
+	"io"
 	"net/http"
 	"strconv"
 )
@@ -29,6 +30,12 @@ var MachineRoutes = route.RoutesGroup{
 			"KillProcess",
 			"/process/{pid}",
 			KillProcessHF,
+		},
+		route.Route{
+			"GET",
+			"GetProcessLogs",
+			"/process/{pid}/logs",
+			GetProcessLogsHF,
 		},
 	},
 }
@@ -59,40 +66,57 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetProcessHF(w http.ResponseWriter, r *http.Request) {
-	// getting & validating incoming data
-	vars := mux.Vars(r)
-	pid, err := strconv.Atoi(vars["pid"])
-	if err != nil {
-		http.Error(w, "Positive numeric pid required", http.StatusBadRequest)
-		return
-	}
+	pid, ok := pidVar(w, r)
+	if ok {
+		// getting process
+		process, err := GetProcess(pid)
 
-	// getting process
-	process, err := GetProcess(uint64(pid))
-
-	// writing response
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Couldn't get machine process: %s", err.Error()), http.StatusBadRequest)
-		return
+		// writing response
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Couldn't get machine process: %s", err.Error()), http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(process)
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(process)
 }
 
 func KillProcessHF(w http.ResponseWriter, r *http.Request) {
-	// getting & validating incoming pid
+	pid, ok := pidVar(w, r)
+	if ok {
+		// killing process
+		err := KillProcess(pid)
+
+		// writing response
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+	}
+}
+
+func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
+	pid, ok := pidVar(w, r)
+	if ok {
+		logs, err := ReadProcessLogs(pid)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		for _, line := range logs {
+			io.WriteString(w, line)
+		}
+	}
+}
+
+func pidVar(w http.ResponseWriter, r *http.Request) (uint64, bool) {
 	vars := mux.Vars(r)
 	pid, err := strconv.Atoi(vars["pid"])
 	if err != nil {
-		http.Error(w, "Positive numeric pid required", http.StatusBadRequest)
-		return
+		http.Error(w, "Numeric pid required", http.StatusBadRequest)
+		return 0, false
 	}
-
-	// killing process
-	err = KillProcess(uint64(pid))
-
-	// writing response
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if pid < 0 {
+		http.Error(w, "Positive pid required", http.StatusBadRequest)
+		return 0, false
 	}
+	return uint64(pid), true
 }
