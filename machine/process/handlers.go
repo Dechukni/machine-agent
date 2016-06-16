@@ -1,38 +1,37 @@
-package machine
+package process
 
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/evoevodin/machine-agent/machine/process"
-	"github.com/evoevodin/machine-agent/route"
+	"github.com/evoevodin/machine-agent/core"
 	"github.com/gorilla/mux"
 	"io"
 	"net/http"
 	"strconv"
 )
 
-var MachineRoutes = route.RoutesGroup{
+var Routes = core.RoutesGroup{
 	"MachineRoutes",
-	[]route.Route{
-		route.Route{
+	[]core.Route{
+		core.Route{
 			"POST",
 			"StartProcess",
 			"/process",
 			StartProcessHF,
 		},
-		route.Route{
+		core.Route{
 			"GET",
 			"GetProcess",
 			"/process/{pid}",
 			GetProcessHF,
 		},
-		route.Route{
+		core.Route{
 			"DELETE",
 			"KillProcess",
 			"/process/{pid}",
 			KillProcessHF,
 		},
-		route.Route{
+		core.Route{
 			"GET",
 			"GetProcessLogs",
 			"/process/{pid}/logs",
@@ -43,7 +42,7 @@ var MachineRoutes = route.RoutesGroup{
 
 func StartProcessHF(w http.ResponseWriter, r *http.Request) {
 	// getting & validating incoming data
-	newProcess := process.NewProcess{}
+	newProcess := NewProcess{}
 	json.NewDecoder(r.Body).Decode(&newProcess)
 	if newProcess.CommandLine == "" {
 		http.Error(w, "Command line required", http.StatusBadRequest)
@@ -55,7 +54,7 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// starting the process
-	process, err := process.Start(&newProcess)
+	process, err := Start(&newProcess, nil)
 
 	// writing response
 	if err != nil {
@@ -70,7 +69,7 @@ func GetProcessHF(w http.ResponseWriter, r *http.Request) {
 	pid, ok := pidVar(w, r)
 	if ok {
 		// getting process
-		process, err := process.Get(pid)
+		process, err := Get(pid)
 
 		// writing response
 		if err != nil {
@@ -86,7 +85,7 @@ func KillProcessHF(w http.ResponseWriter, r *http.Request) {
 	pid, ok := pidVar(w, r)
 	if ok {
 		// killing process
-		err := process.Kill(pid)
+		err := Kill(pid)
 
 		// writing response
 		if err != nil {
@@ -98,7 +97,7 @@ func KillProcessHF(w http.ResponseWriter, r *http.Request) {
 func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
 	pid, ok := pidVar(w, r)
 	if ok {
-		logs, err := process.ReadLogs(pid)
+		logs, err := ReadLogs(pid)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

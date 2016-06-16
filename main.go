@@ -1,18 +1,20 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/evoevodin/machine-agent/core"
 	"github.com/evoevodin/machine-agent/machine"
-	"github.com/evoevodin/machine-agent/route"
+	"github.com/evoevodin/machine-agent/machine/process"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"os"
 )
 
 var (
-	ApplicationRoutes = []route.RoutesGroup{
-		route.ExampleRoutes,
-		machine.MachineRoutes,
+	ApplicationRoutes = []core.RoutesGroup{
+		process.Routes,
 	}
 )
 
@@ -34,13 +36,20 @@ func main() {
 	}
 
 	// TODO this is test process for testing purposes remove it from here
-	//_, err := process.Start(&process.NewProcess{"ping test", "ping google.com"})
-	//if err != nil {
-	//	log.Println("Error: ", err)
-	//}
+	_, err := process.Start(&process.NewProcess{"ping test", "ping google.com"}, &FmtEventSubscriber{})
+	if err != nil {
+		log.Println("Error: ", err)
+	}
 
 	// TODO rework the mechanism of ws connections
 	router.HandleFunc("/connect", machine.WsConnect)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
+}
+
+// TODO remove
+type FmtEventSubscriber struct{}
+
+func (sub *FmtEventSubscriber) OnEvent(event interface{}) {
+	json.NewEncoder(os.Stdout).Encode(event)
 }

@@ -1,5 +1,5 @@
 // TODO add subscribe api calls
-package machine
+package process
 
 const (
 	PROCESS_START = "process.start"

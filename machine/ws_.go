@@ -1,12 +1,23 @@
 package machine
 
 import (
+	"github.com/evoevodin/machine-agent/core"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
 	"sync"
 	"time"
 )
+
+const (
+	CONNECTED = "connected"
+)
+
+type ChannelEvent struct {
+	core.Event
+	ChannelId string `json:"channelId"`
+	Text      string `json:"text"`
+}
 
 type ConnectionsMap struct {
 	sync.RWMutex

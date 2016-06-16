@@ -8,9 +8,10 @@ TODO
 - Plug in terminal into the infrastructure
 - When to cleanup not-alive processes
 - Cleanup/Restore processes when machine restored from snapshot
-- Websocket streaming strategy & logs/events model
 - Add links to the REST API responses
 - Validations for REST/WS received objects
+- Project structure
+
 
 Websocket streaming strategy
 ===

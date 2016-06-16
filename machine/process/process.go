@@ -4,18 +4,24 @@ package process
 import (
 	"errors"
 	"fmt"
+	"github.com/evoevodin/machine-agent/core"
 	"os"
 	"os/exec"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
+	"time"
 )
 
 const (
 // TODO configure with flag
 // logsDir = "src/github.com/evoevodin/machine-agent"
 )
+
+type ProcessSubscriber interface {
+	OnEvent(event interface{})
+}
 
 type NewProcess struct {
 	Name        string `json:"name"`
@@ -29,9 +35,10 @@ type MachineProcess struct {
 	Alive       bool   `json:"alive"`
 	NativePid   int    `json:"nativePid"`
 
-	command    *exec.Cmd
-	pumper     *LogsPumper
-	fileLogger *FileLogger
+	command     *exec.Cmd
+	pumper      *LogsPumper
+	fileLogger  *FileLogger
+	subscribers []ProcessSubscriber
 }
 
 type MachineProcessMap struct {
@@ -44,7 +51,7 @@ var (
 	processes         = &MachineProcessMap{items: make(map[uint64]*MachineProcess)}
 )
 
-func Start(newProcess *NewProcess) (*MachineProcess, error) {
+func Start(newProcess *NewProcess, subscriber ProcessSubscriber) (*MachineProcess, error) {
 	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
 	cmd := exec.Command("setsid", "sh", "-c", newProcess.CommandLine)
 
@@ -71,7 +78,6 @@ func Start(newProcess *NewProcess) (*MachineProcess, error) {
 
 	// FIXME: remove as it will be configurable with a flag
 	logsDir := os.Getenv("GOPATH") + "/src/github.com/evoevodin/machine-agent/logs"
-	fmt.Println(logsDir)
 	if _, err := os.Stat(logsDir); os.IsNotExist(err) {
 		os.MkdirAll(logsDir, 0777)
 	}
@@ -81,28 +87,47 @@ func Start(newProcess *NewProcess) (*MachineProcess, error) {
 		return nil, err
 	}
 
-	pumper := NewPumper(stdout, stderr)
-	pumper.AddConsumer(fileLogger)
-	pumper.AddConsumer(&FmtConsumer{})
-	go func() {
-		defer setDead(pid)
-		pumper.Pump()
-	}()
-
 	// create & save process
 	process := &MachineProcess{
-		pid,
-		newProcess.Name,
-		newProcess.CommandLine,
-		true,
-		cmd.Process.Pid,
-		cmd,
-		pumper,
-		fileLogger,
+		Pid:         pid,
+		Name:        newProcess.Name,
+		CommandLine: newProcess.CommandLine,
+		Alive:       true,
+		NativePid:   cmd.Process.Pid,
+		command:     cmd,
+		pumper:      NewPumper(stdout, stderr),
+		fileLogger:  fileLogger,
+	}
+	if subscriber != nil {
+		process.subscribers = append(process.subscribers, subscriber)
 	}
 	processes.Lock()
 	processes.items[pid] = process
 	processes.Unlock()
+
+	// register logs consumers
+	process.pumper.AddConsumer(fileLogger)
+	process.pumper.AddConsumer(process)
+
+	// before pumping is started publish process_started event
+	process.publish(&ProcessStatusEvent{
+		ProcessEvent{
+			core.Event{
+				PROCESS_STARTED,
+				time.Now(),
+			},
+			process.Pid,
+		},
+		process.NativePid,
+		process.Name,
+		process.CommandLine,
+	})
+
+	// start pumping 'pumper.Pump' is blocking
+	go func() {
+		defer setDead(pid)
+		process.pumper.Pump()
+	}()
 
 	// publish the process
 	return process, nil
@@ -157,24 +182,50 @@ func ReadLogs(pid uint64) ([]string, error) {
 
 func setDead(pid uint64) {
 	processes.Lock()
+	defer processes.Unlock()
 	process, ok := processes.items[pid]
 	if ok {
 		process.Alive = false
 	}
-	processes.Unlock()
-
 }
 
-type FmtConsumer struct{}
-
-func (fc *FmtConsumer) AcceptStdout(line string) {
-	fmt.Print(line)
+func (process *MachineProcess) publish(event interface{}) {
+	for _, subscriber := range process.subscribers {
+		subscriber.OnEvent(event)
+	}
 }
 
-func (fc *FmtConsumer) AcceptStderr(line string) {
-	fmt.Print(line)
+func (process *MachineProcess) AcceptStdout(line string) {
+	event := &ProcessOutputEvent{}
+	event.EventType = STDOUT
+	event.Pid = process.Pid
+	event.Text = line
+	// TODO AcceptStdout to provide time
+	event.Time = time.Now()
+	process.publish(event)
 }
 
-func (fc *FmtConsumer) Close() {
-	fmt.Print("Closed")
+func (process *MachineProcess) AcceptStderr(line string) {
+	event := &ProcessOutputEvent{}
+	event.EventType = STDERR
+	event.Pid = process.Pid
+	event.Text = line
+	// TODO AcceptStderr to provide time
+	event.Time = time.Now()
+	process.publish(event)
+}
+
+func (process *MachineProcess) Close() {
+	process.publish(&ProcessStatusEvent{
+		ProcessEvent{
+			core.Event{
+				PROCESS_DIED,
+				time.Now(),
+			},
+			process.Pid,
+		},
+		process.NativePid,
+		process.Name,
+		process.CommandLine,
+	})
 }
