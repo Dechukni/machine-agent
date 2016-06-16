@@ -34,10 +34,13 @@ func main() {
 	}
 
 	// TODO this is test process for testing purposes remove it from here
-	_, err := machine.StartProcess(&machine.NewProcess{"ping test", "ping google.com"})
-	if err != nil {
-		log.Println("Error: ", err)
-	}
+	//_, err := machine.StartProcess(&machine.NewProcess{"ping test", "ping google.com"})
+	//if err != nil {
+	//	log.Println("Error: ", err)
+	//}
+
+	// TODO rework the mechanism of ws connections
+	router.HandleFunc("/connect", machine.WsConnect)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

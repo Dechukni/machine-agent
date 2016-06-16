@@ -1,6 +1,16 @@
+// TODO add subscribed event types
 package machine
 
 import "time"
+
+const (
+	CONNECTED = "connected"
+
+	PROCESS_STARTED = "process_started"
+	PROCESS_DIED    = "process_died"
+	STDOUT          = "stdout"
+	STDERR          = "stderr"
+)
 
 type Event struct {
 	EventType string    `json:"type"`
@@ -29,5 +39,3 @@ type ChannelEvent struct {
 	ChannelId string `json:"channelId"`
 	Text      string `json:"text"`
 }
-
-// 2016-06-15T20:29:44.437650129+03:00
