@@ -1,6 +1,11 @@
 // TODO add subscribe api calls
 package machine
 
+const (
+	PROCESS_START = "process.start"
+	PROCESS_KILL  = "process.kill"
+)
+
 type ApiCall struct {
 	Operation string `json:"operation"`
 }

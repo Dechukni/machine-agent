@@ -18,8 +18,8 @@ import (
 const (
 	// TODO configure with a flag
 	flushThreshold = 8192
-	STDOUT         = "STDOUT"
-	STDERR         = "STDERR"
+	STDOUT_KIND    = "STDOUT"
+	STDERR_KIND    = "STDERR"
 )
 
 type LogMessage struct {
@@ -50,11 +50,11 @@ func NewLogger(filename string) (*FileLogger, error) {
 }
 
 func (fl *FileLogger) AcceptStdout(line string) {
-	fl.writeLine(&LogMessage{STDOUT, time.Now(), line})
+	fl.writeLine(&LogMessage{STDOUT_KIND, time.Now(), line})
 }
 
 func (fl *FileLogger) AcceptStderr(line string) {
-	fl.writeLine(&LogMessage{STDERR, time.Now(), line})
+	fl.writeLine(&LogMessage{STDERR_KIND, time.Now(), line})
 }
 
 func (fl *FileLogger) Close() {
