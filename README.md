@@ -132,13 +132,13 @@ or
 }
 ```
 
-or even
+or even, where pid is in preference to nativePid
 
 ```json
 {
     "operation" : "process.kill",
-    "pid" : 123, <- is user first
-    "nativePid" : 22388 <- is used if process with given pid does not exist
+    "pid" : 123,
+    "nativePid" : 22388
 }
 ```
 

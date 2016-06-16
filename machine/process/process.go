@@ -1,5 +1,5 @@
 // Exposes API for machines process management
-package machine
+package process
 
 import (
 	"errors"
@@ -29,9 +29,9 @@ type MachineProcess struct {
 	Alive       bool   `json:"alive"`
 	NativePid   int    `json:"nativePid"`
 
-	command     *exec.Cmd
-	pumper      *LogsPumper
-	fileLogger  *FileLogger
+	command    *exec.Cmd
+	pumper     *LogsPumper
+	fileLogger *FileLogger
 }
 
 type MachineProcessMap struct {
@@ -41,10 +41,10 @@ type MachineProcessMap struct {
 
 var (
 	currentPid uint64 = 0
-	processes = &MachineProcessMap{items: make(map[uint64]*MachineProcess)}
+	processes         = &MachineProcessMap{items: make(map[uint64]*MachineProcess)}
 )
 
-func StartProcess(newProcess *NewProcess) (*MachineProcess, error) {
+func Start(newProcess *NewProcess) (*MachineProcess, error) {
 	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
 	cmd := exec.Command("setsid", "sh", "-c", newProcess.CommandLine)
 
@@ -108,7 +108,7 @@ func StartProcess(newProcess *NewProcess) (*MachineProcess, error) {
 	return process, nil
 }
 
-func GetProcess(pid uint64) (*MachineProcess, error) {
+func Get(pid uint64) (*MachineProcess, error) {
 	processes.RLock()
 	process, ok := processes.items[pid]
 	processes.RUnlock()
@@ -120,7 +120,7 @@ func GetProcess(pid uint64) (*MachineProcess, error) {
 	return process, nil
 }
 
-func KillProcess(pid uint64) error {
+func Kill(pid uint64) error {
 	processes.Lock()
 	defer processes.Unlock()
 	process, ok := processes.items[pid]
@@ -131,7 +131,7 @@ func KillProcess(pid uint64) error {
 	return errors.New("No process with id " + strconv.Itoa(int(pid)))
 }
 
-func ReadProcessLogs(pid uint64) ([]string, error) {
+func ReadLogs(pid uint64) ([]string, error) {
 	processes.RLock()
 	defer processes.RUnlock()
 

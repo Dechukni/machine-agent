@@ -3,6 +3,7 @@ package machine
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/evoevodin/machine-agent/machine/process"
 	"github.com/evoevodin/machine-agent/route"
 	"github.com/gorilla/mux"
 	"io"
@@ -42,7 +43,7 @@ var MachineRoutes = route.RoutesGroup{
 
 func StartProcessHF(w http.ResponseWriter, r *http.Request) {
 	// getting & validating incoming data
-	newProcess := NewProcess{}
+	newProcess := process.NewProcess{}
 	json.NewDecoder(r.Body).Decode(&newProcess)
 	if newProcess.CommandLine == "" {
 		http.Error(w, "Command line required", http.StatusBadRequest)
@@ -54,7 +55,7 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// starting the process
-	process, err := StartProcess(&newProcess)
+	process, err := process.Start(&newProcess)
 
 	// writing response
 	if err != nil {
@@ -69,7 +70,7 @@ func GetProcessHF(w http.ResponseWriter, r *http.Request) {
 	pid, ok := pidVar(w, r)
 	if ok {
 		// getting process
-		process, err := GetProcess(pid)
+		process, err := process.Get(pid)
 
 		// writing response
 		if err != nil {
@@ -85,7 +86,7 @@ func KillProcessHF(w http.ResponseWriter, r *http.Request) {
 	pid, ok := pidVar(w, r)
 	if ok {
 		// killing process
-		err := KillProcess(pid)
+		err := process.Kill(pid)
 
 		// writing response
 		if err != nil {
@@ -97,7 +98,7 @@ func KillProcessHF(w http.ResponseWriter, r *http.Request) {
 func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
 	pid, ok := pidVar(w, r)
 	if ok {
-		logs, err := ReadProcessLogs(pid)
+		logs, err := process.ReadLogs(pid)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

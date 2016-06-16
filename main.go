@@ -34,7 +34,7 @@ func main() {
 	}
 
 	// TODO this is test process for testing purposes remove it from here
-	//_, err := machine.StartProcess(&machine.NewProcess{"ping test", "ping google.com"})
+	//_, err := process.Start(&process.NewProcess{"ping test", "ping google.com"})
 	//if err != nil {
 	//	log.Println("Error: ", err)
 	//}

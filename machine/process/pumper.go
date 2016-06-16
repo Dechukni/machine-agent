@@ -1,12 +1,12 @@
 // TODO: consider using []byte instead of strings
 // TODO: consider using go channels instead of LogsConsumers
-package machine
+package process
 
 import (
 	"bufio"
 	"io"
-	"sync"
 	"log"
+	"sync"
 )
 
 type acceptLine func(line string)

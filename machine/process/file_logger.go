@@ -1,7 +1,7 @@
 // FIXME: weak implementation of file logger
 // FIXME: locks, methods publicity
 // TODO: consider data format, improve performance of read/write in/out lock
-package machine
+package process
 
 import (
 	"bufio"
