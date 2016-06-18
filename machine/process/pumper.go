@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 )
 
 type acceptLine func(line string)
@@ -14,11 +15,12 @@ type acceptLine func(line string)
 // LogsPumper client consumes a message read by pumper
 // TODO: consider channels for this purpose
 type LogsConsumer interface {
+
 	// called on each line pumped from process stdout
-	AcceptStdout(line string)
+	OnStdout(line string, time time.Time)
 
 	// called on each line pumped from process stderr
-	AcceptStderr(line string)
+	OnStderr(line string, time time.Time)
 
 	// called when pumping is finished either by normal return or by error
 	Close()
@@ -50,12 +52,12 @@ func (pumper *LogsPumper) Pump() {
 	pumper.waitGroup.Add(2)
 
 	// reading from stdout & stderr
-	go pump(pumper.stdout, pumper.AcceptStdout, &pumper.waitGroup)
-	go pump(pumper.stderr, pumper.AcceptStderr, &pumper.waitGroup)
+	go pump(pumper.stdout, pumper.notifyStdout, &pumper.waitGroup)
+	go pump(pumper.stderr, pumper.notifyStderr, &pumper.waitGroup)
 
 	// cleanup after pumping is complete
 	pumper.waitGroup.Wait()
-	pumper.Close()
+	pumper.notifyClose()
 }
 
 func pump(r io.Reader, lineConsumer acceptLine, wg *sync.WaitGroup) {
@@ -76,19 +78,21 @@ func pump(r io.Reader, lineConsumer acceptLine, wg *sync.WaitGroup) {
 	}
 }
 
-func (pumper *LogsPumper) AcceptStdout(line string) {
+func (pumper *LogsPumper) notifyStdout(line string) {
+	time := time.Now()
 	for _, client := range pumper.clients {
-		client.AcceptStdout(line)
+		client.OnStdout(line, time)
 	}
 }
 
-func (pumper *LogsPumper) AcceptStderr(line string) {
+func (pumper *LogsPumper) notifyStderr(line string) {
+	time := time.Now()
 	for _, client := range pumper.clients {
-		client.AcceptStderr(line)
+		client.OnStderr(line, time)
 	}
 }
 
-func (pumper *LogsPumper) Close() {
+func (pumper *LogsPumper) notifyClose() {
 	for _, client := range pumper.clients {
 		client.Close()
 	}

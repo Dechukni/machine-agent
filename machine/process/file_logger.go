@@ -49,12 +49,12 @@ func NewLogger(filename string) (*FileLogger, error) {
 	return fl, nil
 }
 
-func (fl *FileLogger) AcceptStdout(line string) {
-	fl.writeLine(&LogMessage{STDOUT_KIND, time.Now(), line})
+func (fl *FileLogger) OnStdout(line string, time time.Time) {
+	fl.writeLine(&LogMessage{STDOUT_KIND, time, line})
 }
 
-func (fl *FileLogger) AcceptStderr(line string) {
-	fl.writeLine(&LogMessage{STDERR_KIND, time.Now(), line})
+func (fl *FileLogger) OnStderr(line string, time time.Time) {
+	fl.writeLine(&LogMessage{STDERR_KIND, time, line})
 }
 
 func (fl *FileLogger) Close() {

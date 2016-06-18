@@ -48,7 +48,7 @@ type MachineProcessMap struct {
 
 var (
 	currentPid uint64 = 0
-	processes         = &MachineProcessMap{items: make(map[uint64]*MachineProcess)}
+	processes = &MachineProcessMap{items: make(map[uint64]*MachineProcess)}
 )
 
 func Start(newProcess *NewProcess, subscriber ProcessSubscriber) (*MachineProcess, error) {
@@ -195,24 +195,30 @@ func (process *MachineProcess) publish(event interface{}) {
 	}
 }
 
-func (process *MachineProcess) AcceptStdout(line string) {
-	event := &ProcessOutputEvent{}
-	event.EventType = STDOUT
-	event.Pid = process.Pid
-	event.Text = line
-	// TODO AcceptStdout to provide time
-	event.Time = time.Now()
-	process.publish(event)
+func (process *MachineProcess) OnStdout(line string, time time.Time) {
+	process.publish(&ProcessOutputEvent{
+		ProcessEvent{
+			core.Event{
+				STDOUT,
+				time,
+			},
+			process.Pid,
+		},
+		line,
+	})
 }
 
-func (process *MachineProcess) AcceptStderr(line string) {
-	event := &ProcessOutputEvent{}
-	event.EventType = STDERR
-	event.Pid = process.Pid
-	event.Text = line
-	// TODO AcceptStderr to provide time
-	event.Time = time.Now()
-	process.publish(event)
+func (process *MachineProcess) OnStderr(line string, time time.Time) {
+	process.publish(&ProcessOutputEvent{
+		ProcessEvent{
+			core.Event{
+				STDERR,
+				time,
+			},
+			process.Pid,
+		},
+		line,
+	})
 }
 
 func (process *MachineProcess) Close() {
