@@ -4,7 +4,6 @@ package process
 import (
 	"errors"
 	"fmt"
-	"github.com/evoevodin/machine-agent/core"
 	"os"
 	"os/exec"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"github.com/evoevodin/machine-agent/core/api"
 )
 
 const (
@@ -112,7 +112,7 @@ func Start(newProcess *NewProcess, subscriber ProcessSubscriber) (*MachineProces
 	// before pumping is started publish process_started event
 	process.publish(&ProcessStatusEvent{
 		ProcessEvent{
-			core.Event{
+			api.Event{
 				PROCESS_STARTED,
 				time.Now(),
 			},
@@ -198,7 +198,7 @@ func (process *MachineProcess) publish(event interface{}) {
 func (process *MachineProcess) OnStdout(line string, time time.Time) {
 	process.publish(&ProcessOutputEvent{
 		ProcessEvent{
-			core.Event{
+			api.Event{
 				STDOUT,
 				time,
 			},
@@ -211,7 +211,7 @@ func (process *MachineProcess) OnStdout(line string, time time.Time) {
 func (process *MachineProcess) OnStderr(line string, time time.Time) {
 	process.publish(&ProcessOutputEvent{
 		ProcessEvent{
-			core.Event{
+			api.Event{
 				STDERR,
 				time,
 			},
@@ -224,7 +224,7 @@ func (process *MachineProcess) OnStderr(line string, time time.Time) {
 func (process *MachineProcess) Close() {
 	process.publish(&ProcessStatusEvent{
 		ProcessEvent{
-			core.Event{
+			api.Event{
 				PROCESS_DIED,
 				time.Now(),
 			},

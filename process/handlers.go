@@ -3,35 +3,35 @@ package process
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/evoevodin/machine-agent/core"
 	"github.com/gorilla/mux"
 	"io"
 	"net/http"
 	"strconv"
+	"github.com/evoevodin/machine-agent/core/api"
 )
 
-var Routes = core.RoutesGroup{
-	"MachineRoutes",
-	[]core.Route{
-		core.Route{
+var HttpRoutes = api.HttpRoutesGroup{
+	"ProcessRoutes",
+	[]api.HttpRoute{
+		api.HttpRoute{
 			"POST",
 			"StartProcess",
 			"/process",
 			StartProcessHF,
 		},
-		core.Route{
+		api.HttpRoute{
 			"GET",
 			"GetProcess",
 			"/process/{pid}",
 			GetProcessHF,
 		},
-		core.Route{
+		api.HttpRoute{
 			"DELETE",
 			"KillProcess",
 			"/process/{pid}",
 			KillProcessHF,
 		},
-		core.Route{
+		api.HttpRoute{
 			"GET",
 			"GetProcessLogs",
 			"/process/{pid}/logs",

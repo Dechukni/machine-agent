@@ -2,8 +2,8 @@
 package process
 
 import (
-	"github.com/evoevodin/machine-agent/core"
 )
+import "github.com/evoevodin/machine-agent/core/api"
 
 const (
 	PROCESS_STARTED = "process_started"
@@ -13,7 +13,7 @@ const (
 )
 
 type ProcessEvent struct {
-	core.Event
+	api.Event
 	Pid uint64 `json:"pid"`
 }
 

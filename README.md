@@ -11,6 +11,7 @@ TODO
 - Add links to the REST API responses
 - Validations for REST/WS received objects
 - Project structure
+- Consider using ApiCall(operation, request_object) instead of ApiCall(operation, request_object_fields)
 
 
 Websocket streaming strategy

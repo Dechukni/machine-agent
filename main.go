@@ -3,18 +3,21 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/evoevodin/machine-agent/core"
-	"github.com/evoevodin/machine-agent/machine"
-	"github.com/evoevodin/machine-agent/machine/process"
+	"github.com/evoevodin/machine-agent/core/api"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"os"
+	"github.com/evoevodin/machine-agent/process"
 )
 
 var (
-	ApplicationRoutes = []core.RoutesGroup{
-		process.Routes,
+	ApplicationHttpRoutes = []api.HttpRoutesGroup{
+		process.HttpRoutes,
+	}
+
+	ApplicationOperationRoutes = []api.OperationRoutesGroup{
+	//process.OperationRoutes,
 	}
 )
 
@@ -22,7 +25,7 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 
 	fmt.Println("Registered Routes:\n")
-	for _, routesGroup := range ApplicationRoutes {
+	for _, routesGroup := range ApplicationHttpRoutes {
 		fmt.Printf("%s:\n", routesGroup.Name)
 		for _, route := range routesGroup.Items {
 			fmt.Printf("✓ %s\n", &route)
@@ -36,13 +39,13 @@ func main() {
 	}
 
 	// TODO this is test process for testing purposes remove it from here
-	_, err := process.Start(&process.NewProcess{"ping test", "ping google.com"}, &FmtEventSubscriber{})
-	if err != nil {
-		log.Println("Error: ", err)
-	}
+	//_, err := process.Start(&process.NewProcess{"ping test", "ping google.com"}, &FmtEventSubscriber{})
+	//if err != nil {
+	//	log.Println("Error: ", err)
+	//}
 
 	// TODO rework the mechanism of ws connections
-	router.HandleFunc("/connect", machine.WsConnect)
+	//router.HandleFunc("/connect", WsConnect)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }
