@@ -11,7 +11,7 @@ import (
 )
 
 var HttpRoutes = api.HttpRoutesGroup{
-	"ProcessRoutes",
+	"Process Routes",
 	[]api.HttpRoute{
 		api.HttpRoute{
 			"POST",

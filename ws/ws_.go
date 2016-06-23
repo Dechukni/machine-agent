@@ -1,4 +1,4 @@
-package main
+package ws
 
 import (
 	"github.com/gorilla/websocket"
@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"time"
 	"github.com/evoevodin/machine-agent/core/api"
+	"encoding/json"
+	"fmt"
 )
 
 const (
@@ -53,9 +55,9 @@ func WsConnect(w http.ResponseWriter, r *http.Request) {
 	// TODO appropriate locks
 	connections.items[channelId] = conn
 
-	//eventsChannel := make(chan interface{});
-	//go listenForEvents(conn, eventsChannel)
-	//go listenForCalls(conn, eventsChannel)
+	eventsChannel := make(chan interface{});
+	go listenForEvents(conn, eventsChannel)
+	go listenForCalls(conn, eventsChannel)
 
 	err = conn.WriteJSON(&ChannelEvent{
 		api.Event{
@@ -72,40 +74,35 @@ func WsConnect(w http.ResponseWriter, r *http.Request) {
 }
 
 // TODO handle disconnect
-//func listenForCalls(conn *websocket.Conn, channel chan interface{}) error {
-//	for {
-//
-//		//err := conn.ReadJSON(call)
-//		t, body, err := conn.ReadMessage()
-//		if err != nil {
-//			log.Println("Error reading message, " + err.Error())
-//			continue
-//		}
-//
-//		call := &process.ApiCall{}
-//		json.Unmarshal(body, call)
-//
-//		process.HandleApiCall(call.Operation, body, channel)
-//
-//		//if err != nil {
-//		//	log.Println("ERROR: " + err.Error())
-//		//	continue
-//		//}
-//		log.Printf("%s, %s, %s", t, body, err)
-//		//execute(call)
-//	}
-//}
-//
-//func listenForEvents(conn *websocket.Conn, channel chan interface{}) {
-//	for {
-//		event, ok := <-channel
-//		if !ok {
-//			// channel is closed, means that process stopped producing output
-//			break
-//		}
-//		err := conn.WriteJSON(event)
-//		if err != nil {
-//			log.Printf("Couldn't write event to the channel. Event: %T, %v", event, event)
-//		}
-//	}
-//}
+func listenForCalls(conn *websocket.Conn, channel chan interface{}) error {
+	for {
+
+		//err := conn.ReadJSON(call)
+		_, body, err := conn.ReadMessage()
+		if err != nil {
+			log.Println("Error reading message, " + err.Error())
+			continue
+		}
+
+		call := &api.ApiCall{}
+		json.Unmarshal(body, call)
+
+		fmt.Printf("Operation %s\n", call.Operation)
+
+		api.DispatchApiCall(call.Operation, body, channel)
+	}
+}
+
+func listenForEvents(conn *websocket.Conn, eventsChannel chan interface{}) {
+	for {
+		event, ok := <-eventsChannel
+		if !ok {
+			// channel is closed
+			break
+		}
+		err := conn.WriteJSON(event)
+		if err != nil {
+			log.Printf("Couldn't write event to the channel. Event: %T, %v", event, event)
+		}
+	}
+}

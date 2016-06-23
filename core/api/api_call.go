@@ -1,5 +1,7 @@
 package api
 
+import "fmt"
+
 // Describes named operation which is called
 // on the websocket client's side and usually
 // performed on the machine-agent side, if appropriate OperationRoute exists.
@@ -16,11 +18,6 @@ type OperationRoute struct {
 
 	// The operation name like defined by ApiCall.Operation
 	Operation string
-
-	// The name of the operation route, used in logs
-	// this name is unique for all the application operation routes
-	// example: 'KillProcess'
-	Name string
 
 	// The decoder used for decoding the given object
 	// into the special ApiCall, described by this operation route
@@ -50,3 +47,20 @@ type OperationRoutesGroup struct {
 	Items []OperationRoute
 }
 
+// TODO remove from here & reorganize in dispatcher
+var RegisteredOperationRoutes []OperationRoute
+
+// TODO remove from here & reorganize in dispatcher
+func DispatchApiCall(Operation string, body []byte, eventsChannel chan interface{}) {
+	for _, route := range RegisteredOperationRoutes {
+		if route.Operation == Operation {
+			apiCall, err := route.ApiCallDecoderFunc(body)
+			if err != nil {
+				fmt.Printf("Error decoding ApiCall for the operation '%s'. Error: '%s'\n", Operation, err.Error())
+			}
+			route.ApiCallHandlerFunc(apiCall, eventsChannel)
+			return
+		}
+	}
+	fmt.Printf("No route found for the operation '%s'", Operation)
+}

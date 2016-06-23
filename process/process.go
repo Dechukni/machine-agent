@@ -4,6 +4,7 @@ package process
 import (
 	"errors"
 	"fmt"
+	"github.com/evoevodin/machine-agent/core/api"
 	"os"
 	"os/exec"
 	"strconv"
@@ -11,7 +12,6 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
-	"github.com/evoevodin/machine-agent/core/api"
 )
 
 const (
@@ -38,7 +38,7 @@ type MachineProcess struct {
 	command     *exec.Cmd
 	pumper      *LogsPumper
 	fileLogger  *FileLogger
-	subscribers []ProcessSubscriber
+	subscribers []chan interface{}
 }
 
 type MachineProcessMap struct {
@@ -48,10 +48,10 @@ type MachineProcessMap struct {
 
 var (
 	currentPid uint64 = 0
-	processes = &MachineProcessMap{items: make(map[uint64]*MachineProcess)}
+	processes         = &MachineProcessMap{items: make(map[uint64]*MachineProcess)}
 )
 
-func Start(newProcess *NewProcess, subscriber ProcessSubscriber) (*MachineProcess, error) {
+func Start(newProcess *NewProcess, eventsChannel chan interface{}) (*MachineProcess, error) {
 	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
 	cmd := exec.Command("setsid", "sh", "-c", newProcess.CommandLine)
 
@@ -79,7 +79,10 @@ func Start(newProcess *NewProcess, subscriber ProcessSubscriber) (*MachineProces
 	// FIXME: remove as it will be configurable with a flag
 	logsDir := os.Getenv("GOPATH") + "/src/github.com/evoevodin/machine-agent/logs"
 	if _, err := os.Stat(logsDir); os.IsNotExist(err) {
-		os.MkdirAll(logsDir, 0777)
+		err = os.MkdirAll(logsDir, 0777)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	fileLogger, err := NewLogger(logsDir + "/" + strconv.Itoa(int(pid)))
@@ -98,8 +101,8 @@ func Start(newProcess *NewProcess, subscriber ProcessSubscriber) (*MachineProces
 		pumper:      NewPumper(stdout, stderr),
 		fileLogger:  fileLogger,
 	}
-	if subscriber != nil {
-		process.subscribers = append(process.subscribers, subscriber)
+	if eventsChannel != nil {
+		process.subscribers = append(process.subscribers, eventsChannel)
 	}
 	processes.Lock()
 	processes.items[pid] = process
@@ -191,7 +194,7 @@ func setDead(pid uint64) {
 
 func (process *MachineProcess) publish(event interface{}) {
 	for _, subscriber := range process.subscribers {
-		subscriber.OnEvent(event)
+		subscriber <- event
 	}
 }
 
