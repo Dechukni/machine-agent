@@ -11,6 +11,43 @@ const (
 	PROCESS_KILL  = "process.kill"
 )
 
+var (
+	OpRoutes = disp.OpRoutesGroup{
+		"Process Routes",
+		[]disp.OpRoute{
+
+			disp.OpRoute{
+				PROCESS_START,
+				func(body []byte) (interface{}, error) {
+					call := StartProcessCall{}
+					err := json.Unmarshal(body, &call)
+					return call, err
+				},
+				func(apiCall interface{}, eventsChan chan interface{}) {
+					startCall := apiCall.(StartProcessCall)
+					Start(&NewProcess{
+						startCall.Name,
+						startCall.CommandLine,
+					}, &channelProcessSubscriber{eventsChan})
+				},
+			},
+
+			disp.OpRoute{
+				PROCESS_KILL,
+				func(body []byte) (interface{}, error) {
+					call := KillProcessCall{}
+					err := json.Unmarshal(body, &call)
+					return call, err
+				},
+				func(apiCall interface{}, eventsChan chan interface{}) {
+					kilLCall := apiCall.(KillProcessCall)
+					Kill(kilLCall.Pid)
+				},
+			},
+		},
+	}
+)
+
 type StartProcessCall struct {
 	disp.ApiCall
 	Name        string `json:"name"`
@@ -23,34 +60,22 @@ type KillProcessCall struct {
 	NativePid uint64 `json:"nativePid"`
 }
 
-var OpRoutes = disp.OpRoutesGroup{
-	"Process Routes",
-	[]disp.OpRoute{
+type channelProcessSubscriber struct {
+	channel chan interface{}
+}
 
-		disp.OpRoute{
-			PROCESS_START,
-			func(body []byte) (interface{}, error) {
-				call := StartProcessCall{}
-				err := json.Unmarshal(body, &call)
-				return call, err
-			},
-			func(apiCall interface{}, eventsChannel chan interface{}) {
-				startCall := apiCall.(StartProcessCall)
-				Start(&NewProcess{startCall.Name, startCall.CommandLine}, eventsChannel)
-			},
-		},
+func (cps *channelProcessSubscriber) OnEvent(event interface{}) bool {
+	return writeCarefully(cps.channel, event)
+}
 
-		disp.OpRoute{
-			PROCESS_KILL,
-			func(body []byte) (interface{}, error) {
-				call := KillProcessCall{}
-				err := json.Unmarshal(body, &call)
-				return call, err
-			},
-			func(apiCall interface{}, eventsChannel chan interface{}) {
-				kilLCall := apiCall.(KillProcessCall)
-				Kill(kilLCall.Pid)
-			},
-		},
-	},
+// Writes to the channel and returns true if everything is ok,
+// otherwise if channel is closed then recovers and returns false
+func writeCarefully(eventsChan chan interface{}, event interface{}) (ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			ok = false
+		}
+	}()
+	eventsChan <- event
+	return true
 }

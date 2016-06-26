@@ -4,6 +4,7 @@ package process
 import (
 	"errors"
 	"fmt"
+	"github.com/evoevodin/machine-agent/core"
 	"os"
 	"os/exec"
 	"strconv"
@@ -11,17 +12,21 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
-	"github.com/evoevodin/machine-agent/core"
 )
 
 const (
-// TODO configure with flag
-// logsDir = "src/github.com/evoevodin/machine-agent"
+	STDOUT_BIT         = 1 << iota
+	STDERR_BIT         = 1 << iota
+	PROCESS_STATUS_BIT = 1 << iota
+	DEFAULT_MASK       = STDERR_BIT | STDOUT_BIT | PROCESS_STATUS_BIT
 )
 
 // TODO extend with mechanism for subscription level
 type ProcessSubscriber interface {
-	OnEvent(event interface{})
+
+	// Returns true if ok, and false otherwise.
+	// If false is returned then this subscriber will be unsubscribed
+	OnEvent(event interface{}) bool
 }
 
 type NewProcess struct {
@@ -39,20 +44,20 @@ type MachineProcess struct {
 	command     *exec.Cmd
 	pumper      *LogsPumper
 	fileLogger  *FileLogger
-	subscribers []chan interface{}
+	subscribers []ProcessSubscriber
 }
 
-type Processes struct {
+type MachineProcesses struct {
 	sync.RWMutex
 	items map[uint64]*MachineProcess
 }
 
 var (
 	currentPid uint64 = 0
-	processes         = &Processes{items: make(map[uint64]*MachineProcess)}
+	processes         = &MachineProcesses{items: make(map[uint64]*MachineProcess)}
 )
 
-func Start(newProcess *NewProcess, eventsChannel chan interface{}) (*MachineProcess, error) {
+func Start(newProcess *NewProcess, firstSubscriber ProcessSubscriber) (*MachineProcess, error) {
 	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
 	cmd := exec.Command("setsid", "sh", "-c", newProcess.CommandLine)
 
@@ -102,8 +107,8 @@ func Start(newProcess *NewProcess, eventsChannel chan interface{}) (*MachineProc
 		pumper:      NewPumper(stdout, stderr),
 		fileLogger:  fileLogger,
 	}
-	if eventsChannel != nil {
-		process.subscribers = append(process.subscribers, eventsChannel)
+	if firstSubscriber != nil {
+		process.subscribers = append(process.subscribers, firstSubscriber)
 	}
 	processes.Lock()
 	processes.items[pid] = process
@@ -194,8 +199,14 @@ func setDead(pid uint64) {
 }
 
 func (process *MachineProcess) publish(event interface{}) {
-	for _, subscriber := range process.subscribers {
-		subscriber <- event
+	subs := process.subscribers
+	for idx, subscriber := range subs {
+		if !subscriber.OnEvent(event) {
+			// remove subscriber from the list
+			defer func() {
+				process.subscribers = append(subs[:idx], subs[idx+1:]...)
+			}()
+		}
 	}
 }
 
