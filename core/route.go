@@ -1,4 +1,4 @@
-package api
+package core
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	maxNameLen   = 15
+	maxNameLen   = 30
 	maxMethodLen = len("DELETE")
 )
 
@@ -42,7 +42,7 @@ type HttpRoutesGroup struct {
 }
 
 func (r *HttpRoute) String() string {
-	name := r.Name + strings.Repeat(" ", maxNameLen-len(r.Name))
+	name := r.Name + " " + strings.Repeat(".", maxNameLen-len(r.Name))
 	method := r.Method + strings.Repeat(" ", maxMethodLen-len(r.Method))
-	return fmt.Sprintf("%s\t%s\t%s", name, method, r.Path)
+	return fmt.Sprintf("%s %s %s", name, method, r.Path)
 }

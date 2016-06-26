@@ -4,7 +4,6 @@ package process
 import (
 	"errors"
 	"fmt"
-	"github.com/evoevodin/machine-agent/core/api"
 	"os"
 	"os/exec"
 	"strconv"
@@ -12,6 +11,7 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
+	"github.com/evoevodin/machine-agent/core"
 )
 
 const (
@@ -19,6 +19,7 @@ const (
 // logsDir = "src/github.com/evoevodin/machine-agent"
 )
 
+// TODO extend with mechanism for subscription level
 type ProcessSubscriber interface {
 	OnEvent(event interface{})
 }
@@ -41,14 +42,14 @@ type MachineProcess struct {
 	subscribers []chan interface{}
 }
 
-type MachineProcessMap struct {
+type Processes struct {
 	sync.RWMutex
 	items map[uint64]*MachineProcess
 }
 
 var (
 	currentPid uint64 = 0
-	processes         = &MachineProcessMap{items: make(map[uint64]*MachineProcess)}
+	processes         = &Processes{items: make(map[uint64]*MachineProcess)}
 )
 
 func Start(newProcess *NewProcess, eventsChannel chan interface{}) (*MachineProcess, error) {
@@ -115,7 +116,7 @@ func Start(newProcess *NewProcess, eventsChannel chan interface{}) (*MachineProc
 	// before pumping is started publish process_started event
 	process.publish(&ProcessStatusEvent{
 		ProcessEvent{
-			api.Event{
+			core.Event{
 				PROCESS_STARTED,
 				time.Now(),
 			},
@@ -201,7 +202,7 @@ func (process *MachineProcess) publish(event interface{}) {
 func (process *MachineProcess) OnStdout(line string, time time.Time) {
 	process.publish(&ProcessOutputEvent{
 		ProcessEvent{
-			api.Event{
+			core.Event{
 				STDOUT,
 				time,
 			},
@@ -214,7 +215,7 @@ func (process *MachineProcess) OnStdout(line string, time time.Time) {
 func (process *MachineProcess) OnStderr(line string, time time.Time) {
 	process.publish(&ProcessOutputEvent{
 		ProcessEvent{
-			api.Event{
+			core.Event{
 				STDERR,
 				time,
 			},
@@ -227,7 +228,7 @@ func (process *MachineProcess) OnStderr(line string, time time.Time) {
 func (process *MachineProcess) Close() {
 	process.publish(&ProcessStatusEvent{
 		ProcessEvent{
-			api.Event{
+			core.Event{
 				PROCESS_DIED,
 				time.Now(),
 			},

@@ -3,7 +3,7 @@ package process
 
 import (
 	"encoding/json"
-	"github.com/evoevodin/machine-agent/core/api"
+	"github.com/evoevodin/machine-agent/disp"
 )
 
 const (
@@ -12,22 +12,22 @@ const (
 )
 
 type StartProcessCall struct {
-	api.ApiCall
+	disp.ApiCall
 	Name        string `json:"name"`
 	CommandLine string `json:"commandLine"`
 }
 
 type KillProcessCall struct {
-	api.ApiCall
+	disp.ApiCall
 	Pid       uint64 `json:"pid"`
 	NativePid uint64 `json:"nativePid"`
 }
 
-var OperationRoutes = api.OperationRoutesGroup{
+var OpRoutes = disp.OpRoutesGroup{
 	"Process Routes",
-	[]api.OperationRoute{
+	[]disp.OpRoute{
 
-		api.OperationRoute{
+		disp.OpRoute{
 			PROCESS_START,
 			func(body []byte) (interface{}, error) {
 				call := StartProcessCall{}
@@ -40,7 +40,7 @@ var OperationRoutes = api.OperationRoutesGroup{
 			},
 		},
 
-		api.OperationRoute{
+		disp.OpRoute{
 			PROCESS_KILL,
 			func(body []byte) (interface{}, error) {
 				call := KillProcessCall{}

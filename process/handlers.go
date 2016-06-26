@@ -7,31 +7,31 @@ import (
 	"io"
 	"net/http"
 	"strconv"
-	"github.com/evoevodin/machine-agent/core/api"
+	"github.com/evoevodin/machine-agent/core"
 )
 
-var HttpRoutes = api.HttpRoutesGroup{
+var HttpRoutes = core.HttpRoutesGroup{
 	"Process Routes",
-	[]api.HttpRoute{
-		api.HttpRoute{
+	[]core.HttpRoute{
+		core.HttpRoute{
 			"POST",
 			"StartProcess",
 			"/process",
 			StartProcessHF,
 		},
-		api.HttpRoute{
+		core.HttpRoute{
 			"GET",
 			"GetProcess",
 			"/process/{pid}",
 			GetProcessHF,
 		},
-		api.HttpRoute{
+		core.HttpRoute{
 			"DELETE",
 			"KillProcess",
 			"/process/{pid}",
 			KillProcessHF,
 		},
-		api.HttpRoute{
+		core.HttpRoute{
 			"GET",
 			"GetProcessLogs",
 			"/process/{pid}/logs",

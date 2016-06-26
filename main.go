@@ -2,21 +2,22 @@ package main
 
 import (
 	"fmt"
-	"github.com/evoevodin/machine-agent/core/api"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"github.com/evoevodin/machine-agent/process"
-	"github.com/evoevodin/machine-agent/ws"
+	"github.com/evoevodin/machine-agent/core"
+	"github.com/evoevodin/machine-agent/disp"
 )
 
 var (
-	ApplicationHttpRoutes = []api.HttpRoutesGroup{
+	AppHttpRoutes = []core.HttpRoutesGroup{
 		process.HttpRoutes,
+		disp.HttpRoutes,
 	}
 
-	ApplicationOperationRoutes = []api.OperationRoutesGroup{
-		process.OperationRoutes,
+	AppOpRoutes = []disp.OpRoutesGroup{
+		process.OpRoutes,
 	}
 )
 
@@ -24,7 +25,7 @@ func main() {
 	router := mux.NewRouter().StrictSlash(true)
 
 	fmt.Println("⇩ Registered HttpRoutes:\n")
-	for _, routesGroup := range ApplicationHttpRoutes {
+	for _, routesGroup := range AppHttpRoutes {
 		fmt.Printf("%s:\n", routesGroup.Name)
 		for _, route := range routesGroup.Items {
 			fmt.Printf("✓ %s\n", &route)
@@ -39,30 +40,13 @@ func main() {
 
 	// TODO rework this code in dispatcher object way
 	fmt.Println("\n⇩ Registered OperationRoutes:\n")
-	for _, routesGroup  := range ApplicationOperationRoutes {
+	for _, routesGroup  := range AppOpRoutes {
 		fmt.Printf("%s:\n", routesGroup.Name)
 		for _, route := range routesGroup.Items {
 			fmt.Printf("✓ %s\n", route.Operation)
-			api.RegisteredOperationRoutes = append(api.RegisteredOperationRoutes, route)
+			disp.RegisterRoute(route)
 		}
 	}
-
-	//eventsChannel := make(chan interface{});
-	//
-	//go func() {
-	//	for {
-	//		fmt.Println(<- eventsChannel)
-	//	}
-	//}();
-	//
-	//// TODO this is test process for testing purposes remove it from here
-	//_, err := process.Start(&process.NewProcess{"ping test", "ping google.com"}, eventsChannel)
-	//if err != nil {
-	//	log.Println("Error: ", err)
-	//}
-
-	// TODO rework the mechanism of ws connections
-	router.HandleFunc("/connect", ws.WsConnect)
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

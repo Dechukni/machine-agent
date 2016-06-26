@@ -11,17 +11,9 @@ TODO
 - Add links to the REST API responses
 - Validations for REST/WS received objects
 - Project structure
-- Consider using ApiCall(operation, request_object) instead of ApiCall(operation, request_object_fields)
-
-
 
 Create Dispatcher for handling api calls
 ---
-
-- Defines ApiCall
-- Defines ApiCallDispatcher
-- Defines OperationRoutes/OperationRoutesGroup vs OperationDef/OperationDefGroup
-- Defines methods for registering OperationRoutes/ApiCallRoutes
 - Defines methods for handling webscoket connections
 - Manages webscoket connections state
 - Manages `eventsChannel`
