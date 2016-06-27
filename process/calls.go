@@ -3,7 +3,7 @@ package process
 
 import (
 	"encoding/json"
-	"github.com/evoevodin/machine-agent/disp"
+	"github.com/evoevodin/machine-agent/op"
 )
 
 const (
@@ -12,11 +12,11 @@ const (
 )
 
 var (
-	OpRoutes = disp.OpRoutesGroup{
+	OpRoutes = op.RoutesGroup{
 		"Process Routes",
-		[]disp.OpRoute{
+		[]op.Route{
 
-			disp.OpRoute{
+			op.Route{
 				PROCESS_START,
 				func(body []byte) (interface{}, error) {
 					call := StartProcessCall{}
@@ -32,7 +32,7 @@ var (
 				},
 			},
 
-			disp.OpRoute{
+			op.Route{
 				PROCESS_KILL,
 				func(body []byte) (interface{}, error) {
 					call := KillProcessCall{}
@@ -49,13 +49,13 @@ var (
 )
 
 type StartProcessCall struct {
-	disp.ApiCall
+	op.Call
 	Name        string `json:"name"`
 	CommandLine string `json:"commandLine"`
 }
 
 type KillProcessCall struct {
-	disp.ApiCall
+	op.Call
 	Pid       uint64 `json:"pid"`
 	NativePid uint64 `json:"nativePid"`
 }

@@ -1,4 +1,4 @@
-package disp
+package op
 
 import (
 	"encoding/json"
@@ -8,22 +8,11 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 )
 
-const (
-	CONNECTED = "connected"
-)
-
 var (
-	// Connections managed by the dispatcher
-	connections = &Connections{items: make(map[string]*websocket.Conn)}
-
-	// Registered operation routes
-	opRoutes = &OpRoutes{items: make(map[string]OpRoute)}
-
 	upgrader = websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
@@ -36,53 +25,7 @@ var (
 	prevChanId uint64 = 0
 )
 
-type ChannelEvent struct {
-	core.Event
-	ChannelId string `json:"channelId"`
-	Text      string `json:"text"`
-}
-
-// Defines lockable map for managing websocket connections
-type Connections struct {
-	sync.RWMutex
-	items map[string]*websocket.Conn
-}
-
-// Defines lockable map for managing operation routes
-type OpRoutes struct {
-	sync.RWMutex
-	items map[string]OpRoute
-}
-
-// Gets route by the operation name
-func (opRoutes *OpRoutes) Get(operation string) (OpRoute, bool) {
-	opRoutes.RLock()
-	defer opRoutes.RUnlock()
-	item, ok := opRoutes.items[operation]
-	return item, ok
-}
-
-// Adds a new route, if the route already registered then returns false
-// and doesn't override existing route, if no such route found
-// then the given route will be added and true returned
-func (or *OpRoutes) Add(r OpRoute) bool {
-	opRoutes.Lock()
-	defer opRoutes.Unlock()
-	_, ok := opRoutes.items[r.Operation]
-	if ok {
-		return false
-	}
-	opRoutes.items[r.Operation] = r
-	return true
-}
-
-func RegisterRoute(route OpRoute) {
-	if !opRoutes.Add(route) {
-		log.Fatalf("Couldn't register a new route, route for the operation '%s' already exists", route.Operation)
-	}
-}
-
-func RegisterConnection(w http.ResponseWriter, r *http.Request) {
+func RegisterChannel(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Couldn't establish websocket connection " + err.Error())
@@ -92,13 +35,12 @@ func RegisterConnection(w http.ResponseWriter, r *http.Request) {
 	// Generating unique channel identifier and save the connection
 	// for future interactions with the API
 	chanId := "channel-" + strconv.Itoa(int(atomic.AddUint64(&prevChanId, 1)))
-	connections.Lock()
-	connections.items[chanId] = conn
-	connections.Unlock()
+	connectedTime := time.Now()
+	eventsChan := make(chan interface{})
+	saveChannel(Channel{chanId, connectedTime, eventsChan, conn})
 
 	// Listen for the events from the machine-agent side
 	// and API calls from the channel client side
-	eventsChan := make(chan interface{})
 	go listenForEvents(conn, eventsChan)
 	go listenForCalls(conn, eventsChan)
 
@@ -106,7 +48,7 @@ func RegisterConnection(w http.ResponseWriter, r *http.Request) {
 	eventsChan <- &ChannelEvent{
 		core.Event{
 			CONNECTED,
-			time.Now(),
+			connectedTime,
 		},
 		chanId,
 		"Hello!",
@@ -123,10 +65,10 @@ func listenForCalls(conn *websocket.Conn, eventsChannel chan interface{}) {
 				log.Println("Error reading message, " + err.Error())
 			}
 			close(eventsChannel)
-			break;
+			break
 		}
 
-		call := &ApiCall{}
+		call := &Call{}
 		json.Unmarshal(body, call)
 		dispatchCall(call.Operation, body, eventsChannel)
 	}
@@ -148,7 +90,7 @@ func listenForEvents(conn *websocket.Conn, eventsChannel chan interface{}) {
 
 func dispatchCall(operation string, body []byte, eventsChannel chan interface{}) {
 	// Get the requested route
-	opRoute, ok := opRoutes.Get(operation)
+	opRoute, ok := routes.get(operation)
 	if !ok {
 		// TODO mb respond with an error event?
 		fmt.Printf("No route found for the operation '%s'", operation)
@@ -163,4 +105,3 @@ func dispatchCall(operation string, body []byte, eventsChannel chan interface{})
 	}
 	opRoute.HandlerFunc(apiCall, eventsChannel)
 }
-

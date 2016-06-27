@@ -1,4 +1,4 @@
-package disp
+package op
 
 import "github.com/evoevodin/machine-agent/core"
 
@@ -10,7 +10,7 @@ var (
 				"GET",
 				"Connect to Machine-Agent",
 				"/connect",
-				RegisterConnection,
+				RegisterChannel,
 			},
 		},
 	}

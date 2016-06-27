@@ -7,16 +7,16 @@ import (
 	"net/http"
 	"github.com/evoevodin/machine-agent/process"
 	"github.com/evoevodin/machine-agent/core"
-	"github.com/evoevodin/machine-agent/disp"
+	"github.com/evoevodin/machine-agent/op"
 )
 
 var (
 	AppHttpRoutes = []core.HttpRoutesGroup{
 		process.HttpRoutes,
-		disp.HttpRoutes,
+		op.HttpRoutes,
 	}
 
-	AppOpRoutes = []disp.OpRoutesGroup{
+	AppOpRoutes = []op.RoutesGroup{
 		process.OpRoutes,
 	}
 )
@@ -44,7 +44,7 @@ func main() {
 		fmt.Printf("%s:\n", routesGroup.Name)
 		for _, route := range routesGroup.Items {
 			fmt.Printf("✓ %s\n", route.Operation)
-			disp.RegisterRoute(route)
+			op.RegisterRoute(route)
 		}
 	}
 
