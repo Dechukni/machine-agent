@@ -37,6 +37,12 @@ var HttpRoutes = core.HttpRoutesGroup{
 			"/process/{pid}/logs",
 			GetProcessLogsHF,
 		},
+		core.HttpRoute{
+			"GET",
+			"GetProcesses",
+			"/process",
+			GetProcessesHF,
+		},
 	},
 }
 
@@ -105,6 +111,15 @@ func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
 			io.WriteString(w, line)
 		}
 	}
+}
+
+func GetProcessesHF(w http.ResponseWriter, r *http.Request) {
+	all, err := strconv.ParseBool(r.URL.Query().Get("all"))
+	if err != nil {
+		all = false
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(GetProcesses(all))
 }
 
 func pidVar(w http.ResponseWriter, r *http.Request) (uint64, bool) {

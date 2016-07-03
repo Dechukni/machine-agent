@@ -189,6 +189,19 @@ func ReadLogs(pid uint64) ([]string, error) {
 	return formattedLogs, nil
 }
 
+func GetProcesses(all bool) []*MachineProcess {
+	processes.RLock()
+	defer processes.RUnlock()
+
+	pArr := make([]*MachineProcess, 0, len(processes.items))
+	for _, v := range processes.items {
+		if all || v.Alive {
+			pArr = append(pArr, v)
+		}
+	}
+	return pArr;
+}
+
 func setDead(pid uint64) {
 	processes.Lock()
 	defer processes.Unlock()
