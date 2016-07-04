@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
+	"github.com/evoevodin/machine-agent/core"
+	"github.com/evoevodin/machine-agent/op"
+	"github.com/evoevodin/machine-agent/process"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-	"github.com/evoevodin/machine-agent/process"
-	"github.com/evoevodin/machine-agent/core"
-	"github.com/evoevodin/machine-agent/op"
 )
 
 var (
@@ -38,9 +38,8 @@ func main() {
 		fmt.Println()
 	}
 
-	// TODO rework this code in dispatcher object way
 	fmt.Println("\n⇩ Registered OperationRoutes:\n")
-	for _, routesGroup  := range AppOpRoutes {
+	for _, routesGroup := range AppOpRoutes {
 		fmt.Printf("%s:\n", routesGroup.Name)
 		for _, route := range routesGroup.Items {
 			fmt.Printf("✓ %s\n", route.Operation)

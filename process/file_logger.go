@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -23,7 +22,7 @@ const (
 )
 
 type LogMessage struct {
-	Kind string // stderr | stdout (TODO consider using iota constants)
+	Kind string
 	Time time.Time
 	Text string
 }
@@ -106,8 +105,6 @@ func (fl *FileLogger) writeLine(message *LogMessage) {
 }
 
 func (fl *FileLogger) flush() {
-	// FIXME: remove flush print
-	fmt.Println("Flushing buffer")
 	f, err := os.OpenFile(fl.filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
 		log.Printf("Couldn't open file '%s' for flushing the buffer. %s \n", fl.filename, err.Error())

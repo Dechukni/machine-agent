@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	maxNameLen   = 30
+	maxNameLen   = 40
 	maxMethodLen = len("DELETE")
 )
 

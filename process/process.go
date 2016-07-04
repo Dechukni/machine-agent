@@ -21,12 +21,19 @@ const (
 	DEFAULT_MASK       = STDERR_BIT | STDOUT_BIT | PROCESS_STATUS_BIT
 )
 
-// TODO extend with mechanism for subscription level
-type ProcessSubscriber interface {
+var (
+	currentPid uint64 = 0
+	processes         = &MachineProcesses{items: make(map[uint64]*MachineProcess)}
+)
 
-	// Returns true if ok, and false otherwise.
-	// If false is returned then this subscriber will be unsubscribed
-	OnEvent(event interface{}) bool
+type Subscriber struct {
+	Mask    uint64
+	Channel chan interface{}
+}
+
+type subscribers struct {
+	sync.RWMutex
+	items []*Subscriber
 }
 
 type NewProcess struct {
@@ -41,10 +48,10 @@ type MachineProcess struct {
 	Alive       bool   `json:"alive"`
 	NativePid   int    `json:"nativePid"`
 
-	command     *exec.Cmd
-	pumper      *LogsPumper
-	fileLogger  *FileLogger
-	subscribers []ProcessSubscriber
+	command    *exec.Cmd
+	pumper     *LogsPumper
+	fileLogger *FileLogger
+	subs       subscribers
 }
 
 type MachineProcesses struct {
@@ -52,12 +59,7 @@ type MachineProcesses struct {
 	items map[uint64]*MachineProcess
 }
 
-var (
-	currentPid uint64 = 0
-	processes         = &MachineProcesses{items: make(map[uint64]*MachineProcess)}
-)
-
-func Start(newProcess *NewProcess, firstSubscriber ProcessSubscriber) (*MachineProcess, error) {
+func Start(newProcess *NewProcess, firstSubscriber *Subscriber) (*MachineProcess, error) {
 	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
 	cmd := exec.Command("setsid", "sh", "-c", newProcess.CommandLine)
 
@@ -108,7 +110,7 @@ func Start(newProcess *NewProcess, firstSubscriber ProcessSubscriber) (*MachineP
 		fileLogger:  fileLogger,
 	}
 	if firstSubscriber != nil {
-		process.subscribers = append(process.subscribers, firstSubscriber)
+		process.AddSubscriber(firstSubscriber)
 	}
 	processes.Lock()
 	processes.items[pid] = process
@@ -130,7 +132,7 @@ func Start(newProcess *NewProcess, firstSubscriber ProcessSubscriber) (*MachineP
 		process.NativePid,
 		process.Name,
 		process.CommandLine,
-	})
+	}, PROCESS_STATUS_BIT)
 
 	// start pumping 'pumper.Pump' is blocking
 	go func() {
@@ -142,51 +144,11 @@ func Start(newProcess *NewProcess, firstSubscriber ProcessSubscriber) (*MachineP
 	return process, nil
 }
 
-func Get(pid uint64) (*MachineProcess, error) {
-	processes.RLock()
-	process, ok := processes.items[pid]
-	processes.RUnlock()
-
-	if !ok {
-		return nil, errors.New("No process with id " + strconv.Itoa(int(pid)))
-	}
-
-	return process, nil
-}
-
-func Kill(pid uint64) error {
-	processes.Lock()
-	defer processes.Unlock()
-	process, ok := processes.items[pid]
-	if ok {
-		// workaround for killing child processes see https://github.com/golang/go/issues/8854
-		return syscall.Kill(-process.NativePid, syscall.SIGKILL)
-	}
-	return errors.New("No process with id " + strconv.Itoa(int(pid)))
-}
-
-func ReadLogs(pid uint64) ([]string, error) {
+func Get(pid uint64) (*MachineProcess, bool) {
 	processes.RLock()
 	defer processes.RUnlock()
-
-	// Getting process
-	process, ok := processes.items[pid]
-	if !ok {
-		return nil, errors.New("No process with id " + strconv.Itoa(int(pid)))
-	}
-
-	// Getting process logs
-	logs, err := process.fileLogger.ReadLogs()
-	if err != nil {
-		return nil, err
-	}
-
-	// Transforming process logs
-	formattedLogs := make([]string, len(logs))
-	for idx, item := range logs {
-		formattedLogs[idx] = fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time, item.Text)
-	}
-	return formattedLogs, nil
+	item, ok := processes.items[pid]
+	return item, ok
 }
 
 func GetProcesses(all bool) []*MachineProcess {
@@ -199,26 +161,59 @@ func GetProcesses(all bool) []*MachineProcess {
 			pArr = append(pArr, v)
 		}
 	}
-	return pArr;
+	return pArr
 }
 
-func setDead(pid uint64) {
-	processes.Lock()
-	defer processes.Unlock()
-	process, ok := processes.items[pid]
-	if ok {
-		process.Alive = false
+func (mp *MachineProcess) Kill() error {
+	// workaround for killing child processes see https://github.com/golang/go/issues/8854
+	return syscall.Kill(-mp.NativePid, syscall.SIGKILL)
+}
+
+func (mp *MachineProcess) ReadLogs() ([]string, error) {
+	// Getting process logs
+	logs, err := mp.fileLogger.ReadLogs()
+	if err != nil {
+		return nil, err
+	}
+
+	// Transforming process logs
+	formattedLogs := make([]string, len(logs))
+	for idx, item := range logs {
+		formattedLogs[idx] = fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time, item.Text)
+	}
+	return formattedLogs, nil
+}
+
+func (mp *MachineProcess) RemoveSubscriber(subChannel chan interface{}) {
+	mp.subs.Lock()
+	defer mp.subs.Unlock()
+	for idx, sub := range mp.subs.items {
+		if sub.Channel == subChannel {
+			mp.subs.items = append(mp.subs.items[0:idx], mp.subs.items[idx+1:]...)
+			break
+		}
 	}
 }
 
-func (process *MachineProcess) publish(event interface{}) {
-	subs := process.subscribers
-	for idx, subscriber := range subs {
-		if !subscriber.OnEvent(event) {
-			// remove subscriber from the list
-			defer func() {
-				process.subscribers = append(subs[:idx], subs[idx+1:]...)
-			}()
+func (mp *MachineProcess) AddSubscriber(subscriber *Subscriber) error {
+	mp.subs.Lock()
+	defer mp.subs.Unlock()
+	for _, sub := range mp.subs.items {
+		if sub.Channel == subscriber.Channel {
+			return errors.New("Already subscribed")
+		}
+	}
+	mp.subs.items = append(mp.subs.items, subscriber)
+	return nil
+}
+
+func (mp *MachineProcess) UpdateSubscriber(subChannel chan interface{}, newMask uint64) {
+	mp.subs.Lock()
+	defer mp.subs.Unlock()
+	for _, sub := range mp.subs.items {
+		if sub.Channel == subChannel {
+			sub.Mask = newMask
+			break
 		}
 	}
 }
@@ -233,7 +228,7 @@ func (process *MachineProcess) OnStdout(line string, time time.Time) {
 			process.Pid,
 		},
 		line,
-	})
+	}, STDOUT_BIT)
 }
 
 func (process *MachineProcess) OnStderr(line string, time time.Time) {
@@ -246,7 +241,7 @@ func (process *MachineProcess) OnStderr(line string, time time.Time) {
 			process.Pid,
 		},
 		line,
-	})
+	}, STDERR_BIT)
 }
 
 func (process *MachineProcess) Close() {
@@ -261,5 +256,41 @@ func (process *MachineProcess) Close() {
 		process.NativePid,
 		process.Name,
 		process.CommandLine,
-	})
+	}, PROCESS_STATUS_BIT)
+}
+
+
+func setDead(pid uint64) {
+	processes.Lock()
+	defer processes.Unlock()
+	process, ok := processes.items[pid]
+	if ok {
+		process.Alive = false
+	}
+}
+
+func (mp *MachineProcess) publish(event interface{}, typeBit uint64) {
+	mp.subs.RLock()
+	subs := mp.subs.items
+	for _, subscriber := range subs {
+		// Check whether subscriber needs such kind of event and then try to write to it
+		if subscriber.Mask&typeBit == typeBit && !tryWrite(subscriber.Channel, event) {
+			// Impossible to write to the channel, remove the channel from the subscribers list.
+			// It may happen when writing to the closed channel
+			defer mp.RemoveSubscriber(subscriber.Channel)
+		}
+	}
+	mp.subs.RUnlock()
+}
+
+// Writes to a channel and returns true if write is successful,
+// otherwise if write the channel failed e.g. channel is closed then returns false
+func tryWrite(eventsChan chan interface{}, event interface{}) (ok bool) {
+	defer func() {
+		if r := recover(); r != nil {
+			ok = false
+		}
+	}()
+	eventsChan <- event
+	return true
 }
