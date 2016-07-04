@@ -68,19 +68,19 @@ var HttpRoutes = core.HttpRoutesGroup{
 
 func StartProcessHF(w http.ResponseWriter, r *http.Request) {
 	// getting & validating incoming data
-	newProcess := NewProcess{}
-	json.NewDecoder(r.Body).Decode(&newProcess)
-	if newProcess.CommandLine == "" {
+	command := Command{}
+	json.NewDecoder(r.Body).Decode(&command)
+	if command.CommandLine == "" {
 		http.Error(w, "Command line required", http.StatusBadRequest)
 		return
 	}
-	if newProcess.Name == "" {
+	if command.Name == "" {
 		http.Error(w, "Command name required", http.StatusBadRequest)
 		return
 	}
 
 	// starting the process
-	process, err := Start(&newProcess, nil)
+	process, err := Start(&command, nil)
 
 	// writing response
 	if err != nil {

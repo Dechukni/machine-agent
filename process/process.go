@@ -22,9 +22,65 @@ const (
 )
 
 var (
-	currentPid uint64 = 0
-	processes         = &MachineProcesses{items: make(map[uint64]*MachineProcess)}
+	prevPid   uint64 = 0
+	processes        = &MachineProcesses{items: make(map[uint64]*MachineProcess)}
 )
+
+type Command struct {
+	Name        string `json:"name"`
+	CommandLine string `json:"commandLine"`
+	Type        string `json:"type"`
+}
+
+// Defines machine process model
+type MachineProcess struct {
+
+	// The virtual id of the process, it is guaranteed  that pid
+	// is always unique, while NativePid may occur twice or more(when including dead processes)
+	Pid uint64 `json:"pid"`
+
+	// The name of the process, it is equal to the Command.Name which this process created from.
+	// It doesn't have to be unique, at least machine agent doesn't need such constraint,
+	// as pid is used for identifying process
+	Name string `json:"name"`
+
+	// The command line executed by this process.
+	// It is equal to the Command.CommandLine which this process created from
+	CommandLine string `json:"commandLine"`
+
+	// The type of the command line, this field is rather useful meta
+	// information  than something used for functioning. It is equal
+	// to the Command.Type which this process created from
+	Type string `json:"type"`
+
+	// Whether this process is alive or dead
+	Alive bool `json:"alive"`
+
+	// The native(OS) pid, it is unique per alive processes,
+	// but those which are not alive, may have the same NativePid
+	NativePid int `json:"nativePid"`
+
+	// Command executed by this process.
+	// If process is not alive then the command value is set to nil
+	command *exec.Cmd
+
+	// Stdout/stderr pumper.
+	// If process is not alive then the pumper value is set to nil
+	pumper *LogsPumper
+
+	// Process subscribers, all the outgoing events are go through those subscribers.
+	// If process is not alive then the subscribers value is set to nil
+	subs *subscribers
+
+	// Process file logger
+	fileLogger *FileLogger
+}
+
+// Lockable map for storing processes
+type MachineProcesses struct {
+	sync.RWMutex
+	items map[uint64]*MachineProcess
+}
 
 type Subscriber struct {
 	Mask    uint64
@@ -36,32 +92,9 @@ type subscribers struct {
 	items []*Subscriber
 }
 
-type NewProcess struct {
-	Name        string `json:"name"`
-	CommandLine string `json:"commandLine"`
-}
-
-type MachineProcess struct {
-	Pid         uint64 `json:"pid"`
-	Name        string `json:"name"`
-	CommandLine string `json:"commandLine"`
-	Alive       bool   `json:"alive"`
-	NativePid   int    `json:"nativePid"`
-
-	command    *exec.Cmd
-	pumper     *LogsPumper
-	fileLogger *FileLogger
-	subs       *subscribers
-}
-
-type MachineProcesses struct {
-	sync.RWMutex
-	items map[uint64]*MachineProcess
-}
-
-func Start(newProcess *NewProcess, firstSubscriber *Subscriber) (*MachineProcess, error) {
+func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, error) {
 	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
-	cmd := exec.Command("setsid", "sh", "-c", newProcess.CommandLine)
+	cmd := exec.Command("setsid", "sh", "-c", newCommand.CommandLine)
 
 	// getting stdout pipe
 	stdout, err := cmd.StdoutPipe()
@@ -82,7 +115,7 @@ func Start(newProcess *NewProcess, firstSubscriber *Subscriber) (*MachineProcess
 	}
 
 	// increment current pid & assign it to the value
-	pid := atomic.AddUint64(&currentPid, 1)
+	pid := atomic.AddUint64(&prevPid, 1)
 
 	// FIXME: remove as it will be configurable with a flag
 	logsDir := os.Getenv("GOPATH") + "/src/github.com/evoevodin/machine-agent/logs"
@@ -101,8 +134,9 @@ func Start(newProcess *NewProcess, firstSubscriber *Subscriber) (*MachineProcess
 	// create & save process
 	process := &MachineProcess{
 		Pid:         pid,
-		Name:        newProcess.Name,
-		CommandLine: newProcess.CommandLine,
+		Name:        newCommand.Name,
+		CommandLine: newCommand.CommandLine,
+		Type:        newCommand.Type,
 		Alive:       true,
 		NativePid:   cmd.Process.Pid,
 		command:     cmd,

@@ -24,9 +24,10 @@ var OpRoutes = op.RoutesGroup{
 			},
 			func(apiCall interface{}, eventsChan chan interface{}) {
 				startCall := apiCall.(StartProcessCall)
-				Start(&NewProcess{
+				Start(&Command{
 					startCall.Name,
 					startCall.CommandLine,
+					startCall.Type,
 				}, &Subscriber{
 					DEFAULT_MASK,
 					eventsChan,
@@ -57,6 +58,7 @@ type StartProcessCall struct {
 	op.Call
 	Name        string `json:"name"`
 	CommandLine string `json:"commandLine"`
+	Type        string `json:"type"`
 }
 
 type KillProcessCall struct {
