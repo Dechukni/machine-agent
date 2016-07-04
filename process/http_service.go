@@ -48,19 +48,19 @@ var HttpRoutes = core.HttpRoutesGroup{
 		core.HttpRoute{
 			"DELETE",
 			"Unsubscribe from Process Events",
-			"/process/{pid}/events",
+			"/process/{pid}/events/{channel}",
 			UnsubscribeHF,
 		},
 		core.HttpRoute{
 			"POST",
 			"Subscribe to Process Events",
-			"/process/{pid}/events",
+			"/process/{pid}/events/{channel}",
 			SubscribeHF,
 		},
 		core.HttpRoute{
 			"PUT",
 			"Update Process Events Subscriber",
-			"/process/{pid}/events",
+			"/process/{pid}/events/{channel}",
 			UpdateSubscriberHF,
 		},
 	},
@@ -150,11 +150,8 @@ func GetProcessesHF(w http.ResponseWriter, r *http.Request) {
 
 func UnsubscribeHF(w http.ResponseWriter, r *http.Request) {
 	if pid, ok := pidVar(w, r); ok {
-		channelId := r.URL.Query().Get("channel")
-		if channelId == "" {
-			http.Error(w, "'channel' parameter required", http.StatusBadRequest)
-			return
-		}
+		vars := mux.Vars(r)
+		channelId := vars["channel"]
 
 		// Getting process
 		p, ok := Get(pid)
@@ -176,11 +173,8 @@ func UnsubscribeHF(w http.ResponseWriter, r *http.Request) {
 
 func SubscribeHF(w http.ResponseWriter, r *http.Request) {
 	if pid, ok := pidVar(w, r); ok {
-		channelId := r.URL.Query().Get("channel")
-		if channelId == "" {
-			http.Error(w, "'channel' parameter required", http.StatusBadRequest)
-			return
-		}
+		vars := mux.Vars(r)
+		channelId := vars["channel"]
 
 		// Getting process
 		p, ok := Get(pid)
@@ -202,11 +196,8 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) {
 
 func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) {
 	if pid, ok := pidVar(w, r); ok {
-		channelId := r.URL.Query().Get("channel")
-		if channelId == "" {
-			http.Error(w, "'channel' parameter required", http.StatusBadRequest)
-			return
-		}
+		vars := mux.Vars(r)
+		channelId := vars["channel"]
 
 		// Parsing mask from the level e.g. events?types=stdout,stderr
 		types := r.URL.Query().Get("types")

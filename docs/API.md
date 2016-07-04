@@ -152,7 +152,7 @@ _POST /process/{pid}/events/{channel}_
 #### Response
 
 - `200` if successfully subscribed
-- `400` if any of the parameters are not valid
+- `400` if any of the parameters is not valid
 - `404` if there is no such process or channel
 - `500` if any other error occurs
 
@@ -169,7 +169,7 @@ to the process events
 #### Response
 
 - `200` if successfully unsubsribed
-- `400` if any of the parameters are not valid
+- `400` if any of the parameters is not valid
 - `404` if there is no such process or channel
 - `500` if any other error occurs
 
@@ -186,6 +186,6 @@ _PUT /process/{pid}/events/{channel}_
 #### Response
 
 - `200` if successfully updated
-- `400` if any of the parameters are not valid
+- `400` if any of the parameters is not valid
 - `404` if there is no such process or channel
 - `500` if any other error occurs
