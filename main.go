@@ -47,5 +47,8 @@ func main() {
 		}
 	}
 
+	// Registering documentation routes
+	router.PathPrefix("/docs/").Handler(http.StripPrefix("/docs/", http.FileServer(http.Dir("./docs/"))))
+
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

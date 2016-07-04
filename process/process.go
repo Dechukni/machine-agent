@@ -273,7 +273,7 @@ func (mp *MachineProcess) publish(event interface{}, typeBit uint64) {
 	mp.subs.RLock()
 	subs := mp.subs.items
 	for _, subscriber := range subs {
-		// Check whether subscriber needs such kind of event and then try to write to it
+		// Check whether subscriber needs such kind of event and then try to notify it
 		if subscriber.Mask&typeBit == typeBit && !tryWrite(subscriber.Channel, event) {
 			// Impossible to write to the channel, remove the channel from the subscribers list.
 			// It may happen when writing to the closed channel

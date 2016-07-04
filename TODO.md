@@ -11,6 +11,7 @@ TODO
 - Add links to the REST API responses
 - Validations for REST/WS received objects
 - Project structure
+- Consider using RAML for API documentation
 
 Create Dispatcher for handling api calls
 ---
