@@ -51,7 +51,7 @@ type MachineProcess struct {
 	command    *exec.Cmd
 	pumper     *LogsPumper
 	fileLogger *FileLogger
-	subs       subscribers
+	subs       *subscribers
 }
 
 type MachineProcesses struct {
@@ -108,6 +108,7 @@ func Start(newProcess *NewProcess, firstSubscriber *Subscriber) (*MachineProcess
 		command:     cmd,
 		pumper:      NewPumper(stdout, stderr),
 		fileLogger:  fileLogger,
+		subs:        &subscribers{},
 	}
 	if firstSubscriber != nil {
 		process.AddSubscriber(firstSubscriber)
@@ -258,7 +259,6 @@ func (process *MachineProcess) Close() {
 		process.CommandLine,
 	}, PROCESS_STATUS_BIT)
 }
-
 
 func setDead(pid uint64) {
 	processes.Lock()

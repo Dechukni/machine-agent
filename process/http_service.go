@@ -98,7 +98,7 @@ func GetProcessHF(w http.ResponseWriter, r *http.Request) {
 		process, ok := Get(pid)
 
 		// writing response
-		if ok {
+		if !ok {
 			http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
 			return
 		}
