@@ -1,7 +1,6 @@
 REST API
 ===
 
-
 Process API
 ---
 
@@ -10,6 +9,15 @@ Process API
 #### Request
 
 _POST /process_
+
+- `channel`(optional) - the id of the channel which should be subscribed to the process events
+- `types`(optional) - works only in couple with specified `channel`, defines
+the events which will be sent by the process to the `channel`. Several values may be specified,
+e.g. `channel=channel-1&types=stderr,stdout`. Possible type values:
+    - `stderr` - output from the process stderr
+    - `stdout` - output from the process stdout
+    - `process_status` - the process status events(_started, died_)
+
 
 ```json
 {
@@ -33,6 +41,7 @@ _POST /process_
 ```
 - `200` if successfully started
 - `400` if incoming data is not valid e.g. name is empty
+- `404` if specified `channel` doesn't exist
 - `500` if any other error occurs
 
 

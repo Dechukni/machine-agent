@@ -2,16 +2,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/evoevodin/machine-agent/core"
 	"github.com/evoevodin/machine-agent/op"
 	"github.com/evoevodin/machine-agent/process"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"github.com/evoevodin/machine-agent/core/rest"
 )
 
 var (
-	AppHttpRoutes = []core.HttpRoutesGroup{
+	AppHttpRoutes = []rest.HttpRoutesGroup{
 		process.HttpRoutes,
 		op.HttpRoutes,
 	}
@@ -46,9 +46,6 @@ func main() {
 			op.RegisterRoute(route)
 		}
 	}
-
-	// Registering documentation routes
-	router.PathPrefix("/docs/").Handler(http.StripPrefix("/docs/", http.FileServer(http.Dir("./docs/"))))
 
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

@@ -19,7 +19,7 @@ var (
 // and channel is ready for interaction
 type ChannelEvent struct {
 	core.Event
-	ChannelId string `json:"channelId"`
+	ChannelId string `json:"channel"`
 	Text      string `json:"text"`
 }
 

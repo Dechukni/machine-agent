@@ -1,9 +1,9 @@
-package core
+package rest
 
 import (
-	"fmt"
 	"net/http"
 	"strings"
+	"fmt"
 )
 
 const (
@@ -31,7 +31,7 @@ type HttpRoute struct {
 }
 
 // Named group of http routes, those groups
-// should be defined by separate apis, and than combined together
+// should be defined by separate apis, and then combined together
 type HttpRoutesGroup struct {
 
 	// The name of this group e.g.: 'ProcessRoutes'
@@ -46,3 +46,4 @@ func (r *HttpRoute) String() string {
 	method := r.Method + strings.Repeat(" ", maxMethodLen-len(r.Method))
 	return fmt.Sprintf("%s %s %s", name, method, r.Path)
 }
+

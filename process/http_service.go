@@ -3,7 +3,7 @@ package process
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/evoevodin/machine-agent/core"
+	"github.com/evoevodin/machine-agent/core/rest"
 	"github.com/evoevodin/machine-agent/op"
 	"github.com/gorilla/mux"
 	"io"
@@ -12,52 +12,52 @@ import (
 	"strings"
 )
 
-var HttpRoutes = core.HttpRoutesGroup{
+var HttpRoutes = rest.HttpRoutesGroup{
 	"Process Routes",
-	[]core.HttpRoute{
-		core.HttpRoute{
+	[]rest.HttpRoute{
+		rest.HttpRoute{
 			"POST",
 			"Start Process",
 			"/process",
 			StartProcessHF,
 		},
-		core.HttpRoute{
+		rest.HttpRoute{
 			"GET",
 			"Get Process",
 			"/process/{pid}",
 			GetProcessHF,
 		},
-		core.HttpRoute{
+		rest.HttpRoute{
 			"DELETE",
 			"Kill Process",
 			"/process/{pid}",
 			KillProcessHF,
 		},
-		core.HttpRoute{
+		rest.HttpRoute{
 			"GET",
 			"Get Process Logs",
 			"/process/{pid}/logs",
 			GetProcessLogsHF,
 		},
-		core.HttpRoute{
+		rest.HttpRoute{
 			"GET",
 			"Get Processes",
 			"/process",
 			GetProcessesHF,
 		},
-		core.HttpRoute{
+		rest.HttpRoute{
 			"DELETE",
 			"Unsubscribe from Process Events",
 			"/process/{pid}/events/{channel}",
 			UnsubscribeHF,
 		},
-		core.HttpRoute{
+		rest.HttpRoute{
 			"POST",
 			"Subscribe to Process Events",
 			"/process/{pid}/events/{channel}",
 			SubscribeHF,
 		},
-		core.HttpRoute{
+		rest.HttpRoute{
 			"PUT",
 			"Update Process Events Subscriber",
 			"/process/{pid}/events/{channel}",
@@ -67,75 +67,92 @@ var HttpRoutes = core.HttpRoutesGroup{
 }
 
 func StartProcessHF(w http.ResponseWriter, r *http.Request) {
-	// getting & validating incoming data
 	command := Command{}
-	json.NewDecoder(r.Body).Decode(&command)
-	if command.CommandLine == "" {
-		http.Error(w, "Command line required", http.StatusBadRequest)
-		return
-	}
-	if command.Name == "" {
-		http.Error(w, "Command name required", http.StatusBadRequest)
+	rest.ReadJson(r, &command)
+	if err := checkCommand(&command); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// starting the process
-	process, err := Start(&command, nil)
+	// If channel is provided then check whether it is ready to be
+	// first process subscriber and use it if it is
+	var subscriber *Subscriber
+	channelId := r.URL.Query().Get("channel")
+	if channelId != "" {
+		channel, ok := op.GetChannel(channelId)
+		if !ok {
+			m := fmt.Sprintf("Channel with id '%s' doesn't exist. Process won't be started", channelId)
+			http.Error(w, m, http.StatusNotFound)
+			return
+		}
 
-	// writing response
+		var mask uint64 = DEFAULT_MASK
+		types := r.URL.Query().Get("types")
+		if types != "" {
+			mask = maskFromTypes(types)
+		}
+
+		subscriber = &Subscriber{mask, channel.EventsChannel}
+	}
+
+	process, err := Start(&command, subscriber)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(process)
+	rest.WriteJson(w, process)
 }
 
 func GetProcessHF(w http.ResponseWriter, r *http.Request) {
-	pid, ok := pidVar(w, r)
-	if ok {
-		// getting process
-		process, ok := Get(pid)
-
-		// writing response
-		if !ok {
-			http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-			return
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(process)
+	pid, err := checkPid(mux.Vars(r)["pid"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+
+	process, ok := Get(pid)
+
+	if !ok {
+		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
+		return
+	}
+	rest.WriteJson(w, process)
 }
 
 func KillProcessHF(w http.ResponseWriter, r *http.Request) {
-	if pid, ok := pidVar(w, r); ok {
-		p, ok := Get(pid)
-		if !ok {
-			http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-			return
-		}
-		if err := p.Kill(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+	pid, err := checkPid(mux.Vars(r)["pid"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	p, ok := Get(pid)
+	if !ok {
+		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
+		return
+	}
+	if err := p.Kill(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
 func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
-	pid, ok := pidVar(w, r)
-	if ok {
-		p, ok := Get(pid)
-		if !ok {
-			http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-			return
-		}
-		logs, err := p.ReadLogs()
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		for _, line := range logs {
-			io.WriteString(w, line)
-		}
+	pid, err := checkPid(mux.Vars(r)["pid"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	p, ok := Get(pid)
+	if !ok {
+		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
+		return
+	}
+	logs, err := p.ReadLogs()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	for _, line := range logs {
+		io.WriteString(w, line)
 	}
 }
 
@@ -149,102 +166,104 @@ func GetProcessesHF(w http.ResponseWriter, r *http.Request) {
 }
 
 func UnsubscribeHF(w http.ResponseWriter, r *http.Request) {
-	if pid, ok := pidVar(w, r); ok {
-		vars := mux.Vars(r)
-		channelId := vars["channel"]
-
-		// Getting process
-		p, ok := Get(pid)
-		if !ok {
-			http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-			return
-		}
-
-		// Getting channel
-		channel, ok := op.GetChannel(channelId)
-		if !ok {
-			http.Error(w, fmt.Sprintf("Channel with id '%s' doesn't exist", channelId), http.StatusNotFound)
-			return
-		}
-
-		p.RemoveSubscriber(channel.EventsChannel)
+	vars := mux.Vars(r)
+	pid, err := checkPid(vars["pid"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+
+	// Getting process
+	p, ok := Get(pid)
+	if !ok {
+		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
+		return
+	}
+
+	channelId := vars["channel"]
+
+	// Getting channel
+	channel, ok := op.GetChannel(channelId)
+	if !ok {
+		http.Error(w, fmt.Sprintf("Channel with id '%s' doesn't exist", channelId), http.StatusNotFound)
+		return
+	}
+
+	p.RemoveSubscriber(channel.EventsChannel)
 }
 
 func SubscribeHF(w http.ResponseWriter, r *http.Request) {
-	if pid, ok := pidVar(w, r); ok {
-		vars := mux.Vars(r)
-		channelId := vars["channel"]
-
-		// Getting process
-		p, ok := Get(pid)
-		if !ok {
-			http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-			return
-		}
-
-		// Getting channel
-		channel, ok := op.GetChannel(channelId)
-		if !ok {
-			http.Error(w, fmt.Sprintf("Channel with id '%s' doesn't exist", channelId), http.StatusNotFound)
-			return
-		}
-
-		p.AddSubscriber(&Subscriber{DEFAULT_MASK, channel.EventsChannel})
+	vars := mux.Vars(r)
+	pid, err := checkPid(vars["pid"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+
+	// Getting process
+	p, ok := Get(pid)
+	if !ok {
+		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
+		return
+	}
+
+	channelId := vars["channel"]
+
+	// Getting channel
+	channel, ok := op.GetChannel(channelId)
+	if !ok {
+		http.Error(w, fmt.Sprintf("Channel with id '%s' doesn't exist", channelId), http.StatusNotFound)
+		return
+	}
+
+	p.AddSubscriber(&Subscriber{DEFAULT_MASK, channel.EventsChannel})
 }
 
 func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) {
-	if pid, ok := pidVar(w, r); ok {
-		vars := mux.Vars(r)
-		channelId := vars["channel"]
-
-		// Parsing mask from the level e.g. events?types=stdout,stderr
-		types := r.URL.Query().Get("types")
-		if types == "" {
-			http.Error(w, "'level' parameter required", http.StatusBadRequest)
-			return
-		}
-		var mask uint64
-		for _, t := range strings.Split(types, ",") {
-			switch strings.ToLower(t) {
-			case "stderr":
-				mask |= STDERR_BIT
-			case "stdout":
-				mask |= STDOUT_BIT
-			case "process_status":
-				mask |= PROCESS_STATUS_BIT
-			}
-		}
-
-		// Getting process
-		p, ok := Get(pid)
-		if !ok {
-			http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-			return
-		}
-
-		// Getting channel
-		channel, ok := op.GetChannel(channelId)
-		if !ok {
-			http.Error(w, fmt.Sprintf("Channel with id '%s' doesn't exist", channelId), http.StatusNotFound)
-			return
-		}
-
-		p.UpdateSubscriber(channel.EventsChannel, mask)
+	vars := mux.Vars(r)
+	pid, err := checkPid(vars["pid"])
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
+
+	// Getting process
+	p, ok := Get(pid)
+	if !ok {
+		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
+		return
+	}
+
+	channelId := vars["channel"]
+
+	// Getting channel
+	channel, ok := op.GetChannel(channelId)
+	if !ok {
+		http.Error(w, fmt.Sprintf("Channel with id '%s' doesn't exist", channelId), http.StatusNotFound)
+		return
+	}
+
+	// Parsing mask from the level e.g. events?types=stdout,stderr
+	types := r.URL.Query().Get("types")
+	if types == "" {
+		http.Error(w, "'types' parameter required", http.StatusBadRequest)
+		return
+	}
+
+	p.UpdateSubscriber(channel.EventsChannel, maskFromTypes(types))
 }
 
-func pidVar(w http.ResponseWriter, r *http.Request) (uint64, bool) {
-	vars := mux.Vars(r)
-	pid, err := strconv.Atoi(vars["pid"])
-	if err != nil {
-		http.Error(w, "Numeric pid required", http.StatusBadRequest)
-		return 0, false
+func maskFromTypes(types string) uint64 {
+	var mask uint64
+	for _, t := range strings.Split(types, ",") {
+		switch strings.ToLower(strings.TrimSpace(t)) {
+		case "stderr":
+			mask |= STDERR_BIT
+		case "stdout":
+			mask |= STDOUT_BIT
+		case "process_status":
+			mask |= PROCESS_STATUS_BIT
+		}
 	}
-	if pid < 0 {
-		http.Error(w, "Positive pid required", http.StatusBadRequest)
-		return 0, false
-	}
-	return uint64(pid), true
+	return mask
 }

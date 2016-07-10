@@ -17,5 +17,4 @@ Create Dispatcher for handling api calls
 ---
 - Defines methods for handling webscoket connections
 - Manages webscoket connections state
-- Manages `eventsChannel`
 - Exposes HttpRoutes for connections/management
