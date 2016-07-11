@@ -96,6 +96,7 @@ _DELETE /process/{pid}_
 - `404` if there is no such process
 - `500` if any other error occurs
 
+
 ### Get process logs
 
 #### Request
@@ -103,6 +104,10 @@ _DELETE /process/{pid}_
 _GET /process/{pid}/logs_
 
 - `pid` - the id of the process to get logs
+- `from`(optional) - time to get logs from e.g. _2016-07-12T01:48:04.097980475+03:00_ the format is _RFC3339Nano_
+don't forget to encode this query parameter
+- `till`(optional) - time to get logs till e.g. _2016-07-12T01:49:04.097980475+03:00_ the format is _RFC3339Nano_
+don't forget to encode this query parameter
 
 #### Response
 
@@ -112,6 +117,7 @@ The result logs of the process with the command line `printf "Hello\nWorld\n"`
 [STDOUT] 2016-07-04 08:37:56.315128242 +0300 EEST 	 World
 ```
 - `200` if logs are successfully fetched
+- `400` if `from` or `till` format is invalid
 - `404` if there is no such process
 - `500` if any other error occurs
 

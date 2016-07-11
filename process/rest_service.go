@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var HttpRoutes = rest.HttpRoutesGroup{
@@ -146,7 +147,31 @@ func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
 		return
 	}
-	logs, err := p.ReadLogs()
+
+	// Parse 'from', if 'from' is not specified then read all the logs from the start
+	// if 'from' format is different from the DATE_TIME_FORMAT then return 400
+	from := time.Time{} // The beginning of time
+	if fromParam := r.URL.Query().Get("from"); fromParam != "" {
+		from, err = time.Parse(DATE_TIME_FORMAT, fromParam)
+		if err != nil {
+			http.Error(w, "Bad format of 'from', " + err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Parse 'till', if 'till' is not specified then 'now' is used for it
+	// if 'till' format is different from the DATE_TIME_FORMAT then return 400
+	till := time.Now()
+	if tillParam := r.URL.Query().Get("till"); tillParam != "" {
+		fmt.Println(tillParam)
+		till, err = time.Parse(DATE_TIME_FORMAT, tillParam)
+		if err != nil {
+			http.Error(w, "Bad format of 'till', " + err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+
+	logs, err := p.ReadLogs(from, till)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

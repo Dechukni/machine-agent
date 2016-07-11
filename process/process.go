@@ -19,6 +19,8 @@ const (
 	STDERR_BIT         = 1 << iota
 	PROCESS_STATUS_BIT = 1 << iota
 	DEFAULT_MASK       = STDERR_BIT | STDOUT_BIT | PROCESS_STATUS_BIT
+
+	DATE_TIME_FORMAT = time.RFC3339Nano
 )
 
 var (
@@ -34,7 +36,6 @@ type Command struct {
 
 // Defines machine process model
 type MachineProcess struct {
-
 	// The virtual id of the process, it is guaranteed  that pid
 	// is always unique, while NativePid may occur twice or more(when including dead processes)
 	Pid uint64 `json:"pid"`
@@ -204,9 +205,9 @@ func (mp *MachineProcess) Kill() error {
 	return syscall.Kill(-mp.NativePid, syscall.SIGKILL)
 }
 
-func (mp *MachineProcess) ReadLogs() ([]string, error) {
+func (mp *MachineProcess) ReadLogs(from time.Time, till time.Time) ([]string, error) {
 	// Getting process logs
-	logs, err := mp.fileLogger.ReadLogs()
+	logs, err := mp.fileLogger.ReadLogs(from, till)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +215,7 @@ func (mp *MachineProcess) ReadLogs() ([]string, error) {
 	// Transforming process logs
 	formattedLogs := make([]string, len(logs))
 	for idx, item := range logs {
-		formattedLogs[idx] = fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time, item.Text)
+		formattedLogs[idx] = fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time.Format(DATE_TIME_FORMAT), item.Text)
 	}
 	return formattedLogs, nil
 }
@@ -318,7 +319,7 @@ func (mp *MachineProcess) publish(event interface{}, typeBit uint64) {
 }
 
 // Writes to a channel and returns true if write is successful,
-// otherwise if write the channel failed e.g. channel is closed then returns false
+// otherwise if write to the channel failed e.g. channel is closed then returns false
 func tryWrite(eventsChan chan interface{}, event interface{}) (ok bool) {
 	defer func() {
 		if r := recover(); r != nil {

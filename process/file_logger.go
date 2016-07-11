@@ -1,6 +1,3 @@
-// FIXME: weak implementation of file logger
-// FIXME: locks, methods publicity
-// TODO: consider data format, improve performance of read/write in/out lock
 package process
 
 import (
@@ -60,10 +57,8 @@ func (fl *FileLogger) Close() {
 	fl.flush()
 }
 
-func (fl *FileLogger) ReadLogs() ([]*LogMessage, error) {
-	now := time.Now()
-
-	// Flushing all the logs available before and exactly right 'now'
+func (fl *FileLogger) ReadLogs(from time.Time, till time.Time) ([]*LogMessage, error) {
+	// Flushing all the logs available before 'till'
 	fl.Lock()
 	fl.flush()
 	fl.Unlock()
@@ -87,7 +82,10 @@ func (fl *FileLogger) ReadLogs() ([]*LogMessage, error) {
 			}
 			return nil, err
 		}
-		if message.Time.After(now) {
+		if message.Time.Before(from) {
+			continue
+		}
+		if message.Time.After(till) {
 			break
 		}
 		logs = append(logs, message)
