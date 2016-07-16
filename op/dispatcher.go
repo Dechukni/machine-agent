@@ -55,7 +55,6 @@ func RegisterChannel(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// TODO handle disconnect
 func listenForCalls(conn *websocket.Conn, eventsChannel chan interface{}) {
 	for {
 		// Reading the message from the client

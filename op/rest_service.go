@@ -5,7 +5,7 @@ import (
 )
 
 var HttpRoutes = rest.HttpRoutesGroup{
-	"Dispatcher Http Routes",
+	"Channel Routes",
 	[]rest.HttpRoute{
 		rest.HttpRoute{
 			"GET",
