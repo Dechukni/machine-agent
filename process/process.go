@@ -222,6 +222,9 @@ func (mp *MachineProcess) RemoveSubscriber(subChannel chan interface{}) {
 func (mp *MachineProcess) AddSubscriber(subscriber *Subscriber) error {
 	mp.subs.Lock()
 	defer mp.subs.Unlock()
+	if !mp.Alive {
+		return errors.New("Can't subscribe to the events of dead process")
+	}
 	for _, sub := range mp.subs.items {
 		if sub.Channel == subscriber.Channel {
 			return errors.New("Already subscribed")
@@ -248,8 +251,13 @@ func (mp *MachineProcess) AddBackwardSubscriber(subscriber *Subscriber, after ti
 		return err
 	}
 
-	// Subscribe
-	mp.subs.items = append(mp.subs.items, subscriber)
+	// If process is dead there is no need to subscribe to it
+	// as it is impossible to get it alive again, but it is still
+	// may be useful for client to get missed logs, that's why this
+	// function doesn't throw any errors in the case of dead process
+	if mp.Alive {
+		mp.subs.items = append(mp.subs.items, subscriber)
+	}
 
 	// Publish all the logs between (after, now]
 	for i := 1; i < len(logs); i++ {
