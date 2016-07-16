@@ -2,8 +2,6 @@
 package process
 
 import (
-)
-import (
 	"github.com/evoevodin/machine-agent/core"
 )
 

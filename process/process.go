@@ -3,7 +3,6 @@ package process
 
 import (
 	"errors"
-	"fmt"
 	"github.com/evoevodin/machine-agent/core"
 	"os"
 	"os/exec"
@@ -205,19 +204,8 @@ func (mp *MachineProcess) Kill() error {
 	return syscall.Kill(-mp.NativePid, syscall.SIGKILL)
 }
 
-func (mp *MachineProcess) ReadLogs(from time.Time, till time.Time) ([]string, error) {
-	// Getting process logs
-	logs, err := mp.fileLogger.ReadLogs(from, till)
-	if err != nil {
-		return nil, err
-	}
-
-	// Transforming process logs
-	formattedLogs := make([]string, len(logs))
-	for idx, item := range logs {
-		formattedLogs[idx] = fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time.Format(DATE_TIME_FORMAT), item.Text)
-	}
-	return formattedLogs, nil
+func (mp *MachineProcess) ReadLogs(from time.Time, till time.Time) ([]*LogMessage, error) {
+	return mp.fileLogger.ReadLogs(from, till)
 }
 
 func (mp *MachineProcess) RemoveSubscriber(subChannel chan interface{}) {
@@ -243,6 +231,35 @@ func (mp *MachineProcess) AddSubscriber(subscriber *Subscriber) error {
 	return nil
 }
 
+// Adds a new process subscriber by reading all the logs between
+// given 'after' and now and publishing them to the channel
+func (mp *MachineProcess) AddBackwardSubscriber(subscriber *Subscriber, after time.Time) error {
+	mp.subs.Lock()
+	defer mp.subs.Unlock()
+	for _, sub := range mp.subs.items {
+		if sub.Channel == subscriber.Channel {
+			return errors.New("Already subscribed")
+		}
+	}
+
+	// Read logs between after and now
+	logs, err := mp.ReadLogs(after, time.Now())
+	if err != nil {
+		return err
+	}
+
+	// Subscribe
+	mp.subs.items = append(mp.subs.items, subscriber)
+
+	// Publish all the logs between (after, now]
+	for i := 1; i < len(logs); i++ {
+		message := logs[i]
+		subscriber.Channel <- newOutputEvent(mp.Pid, message.Kind, message.Text, message.Time)
+	}
+
+	return nil
+}
+
 func (mp *MachineProcess) UpdateSubscriber(subChannel chan interface{}, newMask uint64) {
 	mp.subs.Lock()
 	defer mp.subs.Unlock()
@@ -255,29 +272,11 @@ func (mp *MachineProcess) UpdateSubscriber(subChannel chan interface{}, newMask 
 }
 
 func (process *MachineProcess) OnStdout(line string, time time.Time) {
-	process.publish(&ProcessOutputEvent{
-		ProcessEvent{
-			core.Event{
-				STDOUT,
-				time,
-			},
-			process.Pid,
-		},
-		line,
-	}, STDOUT_BIT)
+	process.publish(newOutputEvent(process.Pid, STDOUT, line, time), STDOUT_BIT)
 }
 
 func (process *MachineProcess) OnStderr(line string, time time.Time) {
-	process.publish(&ProcessOutputEvent{
-		ProcessEvent{
-			core.Event{
-				STDERR,
-				time,
-			},
-			process.Pid,
-		},
-		line,
-	}, STDERR_BIT)
+	process.publish(newOutputEvent(process.Pid, STDERR, line, time), STDERR_BIT)
 }
 
 func (process *MachineProcess) Close() {
@@ -328,4 +327,17 @@ func tryWrite(eventsChan chan interface{}, event interface{}) (ok bool) {
 	}()
 	eventsChan <- event
 	return true
+}
+
+func newOutputEvent(pid uint64, kind string, line string, time time.Time) *ProcessOutputEvent {
+	return &ProcessOutputEvent{
+		ProcessEvent{
+			core.Event{
+				kind,
+				time,
+			},
+			pid,
+		},
+		line,
+	}
 }

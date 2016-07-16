@@ -108,14 +108,34 @@ _GET /process/{pid}/logs_
 don't forget to encode this query parameter
 - `till`(optional) - time to get logs till e.g. _2016-07-12T01:49:04.097980475+03:00_ the format is _RFC3339Nano_
 don't forget to encode this query parameter
+- `format`(optional) - the format of the response, default is `json`, possible values are: `text`, `json`
 
 #### Response
 
 The result logs of the process with the command line `printf "Hello\nWorld\n"`
+
+Text:
 ```text
 [STDOUT] 2016-07-04 08:37:56.315082296 +0300 EEST 	 Hello
 [STDOUT] 2016-07-04 08:37:56.315128242 +0300 EEST 	 World
 ```
+
+Json:
+```json
+[
+    {
+        "Kind" : "STDOUT",
+        "Time" : "2016-07-16T19:51:32.313368463+03:00",
+        "Text" : "Hello"
+    },
+    {
+        "Kind" : "STDOUT",
+        "Time" : "2016-07-16T19:51:32.313603625+03:00",
+        "Text" : "World"
+    }
+]
+```
+
 - `200` if logs are successfully fetched
 - `400` if `from` or `till` format is invalid
 - `404` if there is no such process
@@ -162,7 +182,9 @@ _POST /process/{pid}/events/{channel}_
 
 - `pid` - the id of the process to subscribe to
 - `channel` - the id of the webscoket channel which is subscriber
-- `types` - the types of the events separated with comma e.g. `?types=stderr,stdout`
+- `types`(optional) - the types of the events separated by comma e.g. `?types=stderr,stdout`
+-  `after`(optional) - process logs which appeared after given time will
+be republished to the channel. This method may be useful in the reconnect process
 
 #### Response
 
@@ -195,7 +217,7 @@ to the process events
 _PUT /process/{pid}/events/{channel}_
 
 - `pid` - the id of the process
-- `channel` - the id of the webscoket channel which is subscriber
+- `channel` - the id of the websocket channel which is subscriber
 - `types` - the types of the events separated with comma e.g. `?types=stderr,stdout`
 
 #### Response

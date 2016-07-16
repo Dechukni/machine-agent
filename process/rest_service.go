@@ -105,7 +105,7 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetProcessHF(w http.ResponseWriter, r *http.Request) {
-	pid, err := checkPid(mux.Vars(r)["pid"])
+	pid, err := parsePid(mux.Vars(r)["pid"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -121,7 +121,7 @@ func GetProcessHF(w http.ResponseWriter, r *http.Request) {
 }
 
 func KillProcessHF(w http.ResponseWriter, r *http.Request) {
-	pid, err := checkPid(mux.Vars(r)["pid"])
+	pid, err := parsePid(mux.Vars(r)["pid"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -137,7 +137,7 @@ func KillProcessHF(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
-	pid, err := checkPid(mux.Vars(r)["pid"])
+	pid, err := parsePid(mux.Vars(r)["pid"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -150,25 +150,18 @@ func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
 
 	// Parse 'from', if 'from' is not specified then read all the logs from the start
 	// if 'from' format is different from the DATE_TIME_FORMAT then return 400
-	from := time.Time{} // The beginning of time
-	if fromParam := r.URL.Query().Get("from"); fromParam != "" {
-		from, err = time.Parse(DATE_TIME_FORMAT, fromParam)
-		if err != nil {
-			http.Error(w, "Bad format of 'from', " + err.Error(), http.StatusBadRequest)
-			return
-		}
+	from, err := parseTime(r.URL.Query().Get("from"), time.Time{})
+	if err != nil {
+		http.Error(w, "Bad format of 'from', "+err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	// Parse 'till', if 'till' is not specified then 'now' is used for it
 	// if 'till' format is different from the DATE_TIME_FORMAT then return 400
-	till := time.Now()
-	if tillParam := r.URL.Query().Get("till"); tillParam != "" {
-		fmt.Println(tillParam)
-		till, err = time.Parse(DATE_TIME_FORMAT, tillParam)
-		if err != nil {
-			http.Error(w, "Bad format of 'till', " + err.Error(), http.StatusBadRequest)
-			return
-		}
+	till, err := parseTime(r.URL.Query().Get("till"), time.Now())
+	if err != nil {
+		http.Error(w, "Bad format of 'till', "+err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	logs, err := p.ReadLogs(from, till)
@@ -176,8 +169,19 @@ func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	for _, line := range logs {
-		io.WriteString(w, line)
+
+	// Respond with an appropriate logs format, default json
+	format := r.URL.Query().Get("format")
+	switch strings.ToLower(format) {
+	case "text":
+		for _, item := range logs {
+			line := fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time.Format(DATE_TIME_FORMAT), item.Text)
+			io.WriteString(w, line)
+		}
+	case "json":
+		fallthrough
+	default:
+		rest.WriteJson(w, logs)
 	}
 }
 
@@ -192,7 +196,7 @@ func GetProcessesHF(w http.ResponseWriter, r *http.Request) {
 
 func UnsubscribeHF(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	pid, err := checkPid(vars["pid"])
+	pid, err := parsePid(vars["pid"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -219,7 +223,7 @@ func UnsubscribeHF(w http.ResponseWriter, r *http.Request) {
 
 func SubscribeHF(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	pid, err := checkPid(vars["pid"])
+	pid, err := parsePid(vars["pid"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -241,12 +245,25 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	p.AddSubscriber(&Subscriber{DEFAULT_MASK, channel.EventsChannel})
+	subscriber := &Subscriber{DEFAULT_MASK, channel.EventsChannel}
+
+	// Check whether subscriber should see previous process logs
+	afterStr := r.URL.Query().Get("after")
+	if afterStr == "" {
+		p.AddSubscriber(subscriber)
+	} else {
+		after, err := time.Parse(DATE_TIME_FORMAT, afterStr)
+		if err != nil {
+			http.Error(w, "Bad format of 'after', "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		p.AddBackwardSubscriber(subscriber, after)
+	}
 }
 
 func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	pid, err := checkPid(vars["pid"])
+	pid, err := parsePid(vars["pid"])
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
