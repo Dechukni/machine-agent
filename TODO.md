@@ -7,14 +7,8 @@ TODO
 - Plug in terminal into the infrastructure
 - When to cleanup not-alive processes
 - Cleanup/Restore processes when machine restored from snapshot
-- Project structure
 - Consider using RAML for API documentation
-
-Create Dispatcher for handling api calls
----
-- Defines methods for handling webscoket connections
-- Manages webscoket connections state
-- Exposes HttpRoutes for connections/management
+- Cleanup process resources after it is dead
 
 Reconnect
 ---
