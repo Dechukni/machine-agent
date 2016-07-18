@@ -1,9 +1,10 @@
 package process
 
 import (
-	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/evoevodin/machine-agent/core/rest"
+	"github.com/evoevodin/machine-agent/core/rest/restuitl"
 	"github.com/evoevodin/machine-agent/op"
 	"github.com/gorilla/mux"
 	"io"
@@ -67,12 +68,11 @@ var HttpRoutes = rest.HttpRoutesGroup{
 	},
 }
 
-func StartProcessHF(w http.ResponseWriter, r *http.Request) {
+func StartProcessHF(w http.ResponseWriter, r *http.Request) error {
 	command := Command{}
-	rest.ReadJson(r, &command)
+	restutil.ReadJson(r, &command)
 	if err := checkCommand(&command); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return rest.BadRequest(err)
 	}
 
 	// If channel is provided then check whether it is ready to be
@@ -83,8 +83,7 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) {
 		channel, ok := op.GetChannel(channelId)
 		if !ok {
 			m := fmt.Sprintf("Channel with id '%s' doesn't exist. Process won't be started", channelId)
-			http.Error(w, m, http.StatusNotFound)
-			return
+			return rest.NotFound(errors.New(m))
 		}
 
 		var mask uint64 = DEFAULT_MASK
@@ -98,76 +97,67 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) {
 
 	process, err := Start(&command, subscriber)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
-	rest.WriteJson(w, process)
+	return restutil.WriteJson(w, process)
 }
 
-func GetProcessHF(w http.ResponseWriter, r *http.Request) {
+func GetProcessHF(w http.ResponseWriter, r *http.Request) error {
 	pid, err := parsePid(mux.Vars(r)["pid"])
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return rest.BadRequest(err)
 	}
 
 	process, ok := Get(pid)
 
 	if !ok {
-		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-		return
+		return rest.NotFound(errors.New(fmt.Sprintf("No process with id '%d'", pid)))
 	}
-	rest.WriteJson(w, process)
+	return restutil.WriteJson(w, process)
 }
 
-func KillProcessHF(w http.ResponseWriter, r *http.Request) {
+func KillProcessHF(w http.ResponseWriter, r *http.Request) error {
 	pid, err := parsePid(mux.Vars(r)["pid"])
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return rest.BadRequest(err)
 	}
 	p, ok := Get(pid)
 	if !ok {
-		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-		return
+		return rest.NotFound(errors.New(fmt.Sprintf("No process with id '%d'", pid)))
 	}
 	if err := p.Kill(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return err
 	}
+	return nil
 }
 
-func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
+func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) error {
 	pid, err := parsePid(mux.Vars(r)["pid"])
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return rest.BadRequest(err)
 	}
 	p, ok := Get(pid)
 	if !ok {
-		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-		return
+		return rest.NotFound(errors.New(fmt.Sprintf("No process with id '%d'", pid)))
 	}
 
 	// Parse 'from', if 'from' is not specified then read all the logs from the start
 	// if 'from' format is different from the DATE_TIME_FORMAT then return 400
 	from, err := parseTime(r.URL.Query().Get("from"), time.Time{})
 	if err != nil {
-		http.Error(w, "Bad format of 'from', "+err.Error(), http.StatusBadRequest)
-		return
+		return rest.BadRequest(errors.New("Bad format of 'from', " + err.Error()))
 	}
 
 	// Parse 'till', if 'till' is not specified then 'now' is used for it
 	// if 'till' format is different from the DATE_TIME_FORMAT then return 400
 	till, err := parseTime(r.URL.Query().Get("till"), time.Now())
 	if err != nil {
-		http.Error(w, "Bad format of 'till', "+err.Error(), http.StatusBadRequest)
-		return
+		return rest.BadRequest(errors.New("Bad format of 'till', " + err.Error()))
 	}
 
 	logs, err := p.ReadLogs(from, till)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
 
 	// Respond with an appropriate logs format, default json
@@ -179,34 +169,31 @@ func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) {
 			io.WriteString(w, line)
 		}
 	case "json":
-		fallthrough
-	default:
-		rest.WriteJson(w, logs)
+		return restutil.WriteJson(w, logs)
 	}
+	return restutil.WriteJson(w, logs)
 }
 
-func GetProcessesHF(w http.ResponseWriter, r *http.Request) {
+func GetProcessesHF(w http.ResponseWriter, r *http.Request) error {
 	all, err := strconv.ParseBool(r.URL.Query().Get("all"))
 	if err != nil {
 		all = false
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(GetProcesses(all))
+	return restutil.WriteJson(w, GetProcesses(all))
 }
 
-func UnsubscribeHF(w http.ResponseWriter, r *http.Request) {
+func UnsubscribeHF(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	pid, err := parsePid(vars["pid"])
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return rest.BadRequest(err)
 	}
 
 	// Getting process
 	p, ok := Get(pid)
 	if !ok {
-		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-		return
+		return rest.NotFound(errors.New(fmt.Sprintf("No process with id '%d'", pid)))
 	}
 
 	channelId := vars["channel"]
@@ -214,26 +201,24 @@ func UnsubscribeHF(w http.ResponseWriter, r *http.Request) {
 	// Getting channel
 	channel, ok := op.GetChannel(channelId)
 	if !ok {
-		http.Error(w, fmt.Sprintf("Channel with id '%s' doesn't exist", channelId), http.StatusNotFound)
-		return
+		return rest.NotFound(errors.New(fmt.Sprintf("Channel with id '%s' doesn't exist", channelId)))
 	}
 
 	p.RemoveSubscriber(channel.EventsChannel)
+	return nil
 }
 
-func SubscribeHF(w http.ResponseWriter, r *http.Request) {
+func SubscribeHF(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	pid, err := parsePid(vars["pid"])
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return rest.BadRequest(err)
 	}
 
 	// Getting process
 	p, ok := Get(pid)
 	if !ok {
-		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-		return
+		return rest.NotFound(errors.New(fmt.Sprintf("No process with id '%d'", pid)))
 	}
 
 	channelId := vars["channel"]
@@ -241,8 +226,7 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) {
 	// Getting channel
 	channel, ok := op.GetChannel(channelId)
 	if !ok {
-		http.Error(w, fmt.Sprintf("Channel with id '%s' doesn't exist", channelId), http.StatusNotFound)
-		return
+		return errors.New(fmt.Sprintf("Channel with id '%s' doesn't exist", channelId))
 	}
 
 	subscriber := &Subscriber{DEFAULT_MASK, channel.EventsChannel}
@@ -254,26 +238,24 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) {
 	} else {
 		after, err := time.Parse(DATE_TIME_FORMAT, afterStr)
 		if err != nil {
-			http.Error(w, "Bad format of 'after', "+err.Error(), http.StatusBadRequest)
-			return
+			return rest.BadRequest(errors.New("Bad format of 'after', " + err.Error()))
 		}
 		p.AddBackwardSubscriber(subscriber, after)
 	}
+	return nil
 }
 
-func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) {
+func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	pid, err := parsePid(vars["pid"])
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+		return rest.BadRequest(err)
 	}
 
 	// Getting process
 	p, ok := Get(pid)
 	if !ok {
-		http.Error(w, fmt.Sprintf("No process with id '%d'", pid), http.StatusNotFound)
-		return
+		return rest.NotFound(errors.New(fmt.Sprintf("No process with id '%d'", pid)))
 	}
 
 	channelId := vars["channel"]
@@ -281,18 +263,17 @@ func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) {
 	// Getting channel
 	channel, ok := op.GetChannel(channelId)
 	if !ok {
-		http.Error(w, fmt.Sprintf("Channel with id '%s' doesn't exist", channelId), http.StatusNotFound)
-		return
+		return rest.NotFound(errors.New(fmt.Sprintf("Channel with id '%s' doesn't exist", channelId)))
 	}
 
 	// Parsing mask from the level e.g. events?types=stdout,stderr
 	types := r.URL.Query().Get("types")
 	if types == "" {
-		http.Error(w, "'types' parameter required", http.StatusBadRequest)
-		return
+		return rest.BadRequest(errors.New("'types' parameter required"))
 	}
 
 	p.UpdateSubscriber(channel.EventsChannel, maskFromTypes(types))
+	return nil
 }
 
 func maskFromTypes(types string) uint64 {

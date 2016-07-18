@@ -25,11 +25,11 @@ var (
 	prevChanId uint64 = 0
 )
 
-func RegisterChannel(w http.ResponseWriter, r *http.Request) {
+func RegisterChannel(w http.ResponseWriter, r *http.Request) error {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Couldn't establish websocket connection " + err.Error())
-		return
+		return nil
 	}
 
 	// Generating unique channel identifier and save the connection
@@ -53,6 +53,7 @@ func RegisterChannel(w http.ResponseWriter, r *http.Request) {
 		chanId,
 		"Hello!",
 	}
+	return nil
 }
 
 func listenForCalls(conn *websocket.Conn, eventsChannel chan interface{}) {
