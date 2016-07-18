@@ -37,12 +37,13 @@ func RegisterChannel(w http.ResponseWriter, r *http.Request) error {
 	chanId := "channel-" + strconv.Itoa(int(atomic.AddUint64(&prevChanId, 1)))
 	connectedTime := time.Now()
 	eventsChan := make(chan interface{})
-	saveChannel(Channel{chanId, connectedTime, eventsChan, conn})
+	channel := Channel{chanId, connectedTime, eventsChan, conn}
+	saveChannel(channel)
 
 	// Listen for the events from the machine-agent side
 	// and API calls from the channel client side
-	go listenForEvents(conn, eventsChan)
-	go listenForCalls(conn, eventsChan)
+	go listenForEvents(conn, channel)
+	go listenForCalls(conn, channel)
 
 	// Say hello to the client
 	eventsChan <- &ChannelEvent{
@@ -56,7 +57,7 @@ func RegisterChannel(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func listenForCalls(conn *websocket.Conn, eventsChannel chan interface{}) {
+func listenForCalls(conn *websocket.Conn, channel Channel) {
 	for {
 		// Reading the message from the client
 		_, body, err := conn.ReadMessage()
@@ -64,19 +65,19 @@ func listenForCalls(conn *websocket.Conn, eventsChannel chan interface{}) {
 			if !websocket.IsCloseError(err, 1005) {
 				log.Println("Error reading message, " + err.Error())
 			}
-			close(eventsChannel)
+			close(channel.EventsChannel)
 			break
 		}
 
 		call := &Call{}
 		json.Unmarshal(body, call)
-		dispatchCall(call.Operation, body, eventsChannel)
+		dispatchCall(call.Operation, body, channel)
 	}
 }
 
-func listenForEvents(conn *websocket.Conn, eventsChannel chan interface{}) {
+func listenForEvents(conn *websocket.Conn, channel Channel) {
 	for {
-		event, ok := <-eventsChannel
+		event, ok := <-channel.EventsChannel
 		if !ok {
 			// channel is closed, should happen only if websocket connection is closed
 			break
@@ -88,7 +89,7 @@ func listenForEvents(conn *websocket.Conn, eventsChannel chan interface{}) {
 	}
 }
 
-func dispatchCall(operation string, body []byte, eventsChannel chan interface{}) {
+func dispatchCall(operation string, body []byte, channel Channel) {
 	// Get the requested route
 	opRoute, ok := routes.get(operation)
 	if !ok {
@@ -103,5 +104,5 @@ func dispatchCall(operation string, body []byte, eventsChannel chan interface{})
 		// TODO mb respond with an error event?
 		fmt.Printf("Error decoding ApiCall for the operation '%s'. Error: '%s'\n", operation, err.Error())
 	}
-	opRoute.HandlerFunc(apiCall, eventsChannel)
+	opRoute.HandlerFunc(apiCall, channel)
 }

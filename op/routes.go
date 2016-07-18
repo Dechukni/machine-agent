@@ -40,7 +40,7 @@ type Route struct {
 	// The apiCall is value returned from the ApiCallDecoderFunc while
 	// eventsChannel is a channel where all the events produced by
 	// the operation should be written to
-	HandlerFunc func(apiCall interface{}, eventsChannel chan interface{})
+	HandlerFunc func(apiCall interface{}, channel Channel)
 }
 
 // Named group of operation routes, those groups
