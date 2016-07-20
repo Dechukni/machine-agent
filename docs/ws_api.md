@@ -2,17 +2,19 @@
 Process API
 ---
 
-### Start a new process
+### Start process
 
 ```json
 {
     "operation" : "process.start",
     "name" : "build",
     "commandLine" : "mvn clean install"
+    "type" : "maven"
 }
 ```
+__types is optional__
 
-### Kill an existing process
+### Kill process
 
 ```json
 {
@@ -20,3 +22,15 @@ Process API
     "pid" : 123
 }
 ```
+
+### Subscribe to process events
+
+```json
+{
+    "operation" : "process.subscribe",
+    "pid" : 123,
+    "types" : "stdout,stderr"
+}
+```
+
+__types__ is optional
