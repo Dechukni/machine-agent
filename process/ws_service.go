@@ -18,8 +18,7 @@ const (
 var OpRoutes = op.RoutesGroup{
 	"Process Routes",
 	[]op.Route{
-
-		op.Route{
+		{
 			PROCESS_START,
 			func(body []byte) (interface{}, error) {
 				call := StartProcessCall{}
@@ -39,7 +38,7 @@ var OpRoutes = op.RoutesGroup{
 			},
 		},
 
-		op.Route{
+		{
 			PROCESS_KILL,
 			func(body []byte) (interface{}, error) {
 				call := KillProcessCall{}
@@ -56,15 +55,15 @@ var OpRoutes = op.RoutesGroup{
 			},
 		},
 
-		op.Route{
+		{
 			PROCESS_SUBSCRIBE,
 			func(body []byte) (interface{}, error) {
-				call := SubscribeToProcess{}
+				call := SubscribeToProcessCall{}
 				err := json.Unmarshal(body, &call)
 				return call, err
 			},
 			func(apiCall interface{}, channel op.Channel) {
-				subscribeCall := apiCall.(SubscribeToProcess)
+				subscribeCall := apiCall.(SubscribeToProcessCall)
 
 				p, ok := Get(subscribeCall.Pid)
 
@@ -104,8 +103,9 @@ type KillProcessCall struct {
 	NativePid uint64 `json:"nativePid"`
 }
 
-type SubscribeToProcess struct {
+type SubscribeToProcessCall struct {
 	op.Call
 	Pid   uint64 `json:"pid"`
 	Types string `json:"types"`
 }
+

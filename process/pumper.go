@@ -13,7 +13,6 @@ import (
 type acceptLine func(line string)
 
 // LogsPumper client consumes a message read by pumper
-// TODO: consider channels for this purpose
 type LogsConsumer interface {
 
 	// called on each line pumped from process stdout

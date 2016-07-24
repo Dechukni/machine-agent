@@ -17,49 +17,49 @@ import (
 var HttpRoutes = rest.HttpRoutesGroup{
 	"Process Routes",
 	[]rest.HttpRoute{
-		rest.HttpRoute{
+		{
 			"POST",
 			"Start Process",
 			"/process",
 			StartProcessHF,
 		},
-		rest.HttpRoute{
+		{
 			"GET",
 			"Get Process",
 			"/process/{pid}",
 			GetProcessHF,
 		},
-		rest.HttpRoute{
+		{
 			"DELETE",
 			"Kill Process",
 			"/process/{pid}",
 			KillProcessHF,
 		},
-		rest.HttpRoute{
+		{
 			"GET",
 			"Get Process Logs",
 			"/process/{pid}/logs",
 			GetProcessLogsHF,
 		},
-		rest.HttpRoute{
+		{
 			"GET",
 			"Get Processes",
 			"/process",
 			GetProcessesHF,
 		},
-		rest.HttpRoute{
+		{
 			"DELETE",
 			"Unsubscribe from Process Events",
 			"/process/{pid}/events/{channel}",
 			UnsubscribeHF,
 		},
-		rest.HttpRoute{
+		{
 			"POST",
 			"Subscribe to Process Events",
 			"/process/{pid}/events/{channel}",
 			SubscribeHF,
 		},
-		rest.HttpRoute{
+		{
 			"PUT",
 			"Update Process Events Subscriber",
 			"/process/{pid}/events/{channel}",
@@ -179,7 +179,6 @@ func GetProcessesHF(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		all = false
 	}
-	w.Header().Set("Content-Type", "application/json")
 	return restutil.WriteJson(w, GetProcesses(all))
 }
 
