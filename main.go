@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	AppHttpRoutes = []rest.HttpRoutesGroup{
+	AppHttpRoutes = []rest.RoutesGroup{
 		process.HttpRoutes,
 		op.HttpRoutes,
 	}

@@ -4,10 +4,10 @@ import (
 	"github.com/evoevodin/machine-agent/core/rest"
 )
 
-var HttpRoutes = rest.HttpRoutesGroup{
+var HttpRoutes = rest.RoutesGroup{
 	"Channel Routes",
-	[]rest.HttpRoute{
-		rest.HttpRoute{
+	[]rest.Route{
+		rest.Route{
 			"GET",
 			"Connect to Machine-Agent(webscoket)",
 			"/connect",

@@ -21,7 +21,7 @@ var (
 type HttpRouteHandlerFunc func(w http.ResponseWriter, r *http.Request) error
 
 // Describes route for http requests
-type HttpRoute struct {
+type Route struct {
 
 	// Http method e.g. 'GET'
 	Method string
@@ -41,16 +41,16 @@ type HttpRoute struct {
 
 // Named group of http routes, those groups
 // should be defined by separate apis, and then combined together
-type HttpRoutesGroup struct {
+type RoutesGroup struct {
 
 	// The name of this group e.g.: 'ProcessRoutes'
 	Name string
 
 	// The http routes of this group
-	Items []HttpRoute
+	Items []Route
 }
 
-func (r *HttpRoute) String() string {
+func (r *Route) String() string {
 	name := r.Name + " " + strings.Repeat(".", maxNameLen-len(r.Name))
 	method := r.Method + strings.Repeat(" ", maxMethodLen-len(r.Method))
 	return fmt.Sprintf("%s %s %s", name, method, r.Path)
@@ -58,7 +58,7 @@ func (r *HttpRoute) String() string {
 
 // Registers new http route, if route with such name exists
 // then this route overrides existing one
-func RegisterRoute(route HttpRoute) {
+func RegisterRoute(route Route) {
 	Router.
 		Methods(route.Method).
 		Path(route.Path).

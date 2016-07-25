@@ -14,9 +14,9 @@ import (
 	"time"
 )
 
-var HttpRoutes = rest.HttpRoutesGroup{
+var HttpRoutes = rest.RoutesGroup{
 	"Process Routes",
-	[]rest.HttpRoute{
+	[]rest.Route{
 		{
 			"POST",
 			"Start Process",
