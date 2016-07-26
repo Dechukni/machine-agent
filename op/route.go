@@ -39,7 +39,9 @@ type Route struct {
 	// If handler function can't perform the operation then appropriate error
 	// event should be published into the eventsChannel
 	// The call is a value returned from the DecoderFunc.
-	HandlerFunc func(call interface{}, channel Channel)
+	// If an error is returned from the function then it will be
+	// published to the channel as an error event.
+	HandlerFunc func(call interface{}, channel Channel) error
 }
 
 // Named group of operation routes, those groups

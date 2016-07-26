@@ -7,11 +7,11 @@ import (
 var HttpRoutes = rest.RoutesGroup{
 	"Channel Routes",
 	[]rest.Route{
-		rest.Route{
+		{
 			"GET",
 			"Connect to Machine-Agent(webscoket)",
 			"/connect",
-			RegisterChannel,
+			registerChannel,
 		},
 	},
 }

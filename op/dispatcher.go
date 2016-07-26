@@ -2,6 +2,7 @@ package op
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/evoevodin/machine-agent/core"
 	"github.com/gorilla/websocket"
@@ -25,7 +26,7 @@ var (
 	prevChanId uint64 = 0
 )
 
-func RegisterChannel(w http.ResponseWriter, r *http.Request) error {
+func registerChannel(w http.ResponseWriter, r *http.Request) error {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Couldn't establish websocket connection " + err.Error())
@@ -70,8 +71,11 @@ func listenForCalls(conn *websocket.Conn, channel Channel) {
 		}
 
 		call := &Call{}
-		json.Unmarshal(body, call)
-		dispatchCall(call.Operation, body, channel)
+		if err := json.Unmarshal(body, call); err != nil {
+			channel.EventsChannel <- core.NewErrorEvent(err)
+		} else {
+			dispatchCall(call.Operation, body, channel)
+		}
 	}
 }
 
@@ -93,16 +97,19 @@ func dispatchCall(operation string, body []byte, channel Channel) {
 	// Get the requested route
 	opRoute, ok := routes.get(operation)
 	if !ok {
-		// TODO mb respond with an error event?
-		fmt.Printf("No route found for the operation '%s'", operation)
+		m := fmt.Sprintf("No route for the operation '%s'", operation)
+		channel.EventsChannel <- core.NewErrorEvent(errors.New(m))
 		return
 	}
 
 	// Dispatch call
 	call, err := opRoute.DecoderFunc(body)
 	if err != nil {
-		// TODO mb respond with an error event?
-		fmt.Printf("Error decoding Call for the operation '%s'. Error: '%s'\n", operation, err.Error())
+		m := fmt.Sprintf("Error decoding Call for the operation '%s'. Error: '%s'\n", operation, err.Error())
+		channel.EventsChannel <- core.NewErrorEvent(errors.New(m))
+		return
 	}
-	opRoute.HandlerFunc(call, channel)
+	if err := opRoute.HandlerFunc(call, channel); err != nil {
+		channel.EventsChannel <- core.NewErrorEvent(err)
+	}
 }

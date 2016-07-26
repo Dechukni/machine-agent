@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/evoevodin/machine-agent/core"
 	"github.com/evoevodin/machine-agent/op"
 	"time"
 )
@@ -70,65 +69,61 @@ type SubscribeToProcessCall struct {
 	After      string `json:"after"`
 }
 
-func StartProcessCallHF(call interface{}, channel op.Channel) {
+func StartProcessCallHF(call interface{}, channel op.Channel) error {
 	startCall := call.(StartProcessCall)
 
 	// Creating command
-	command := &Command{startCall.Name, startCall.CommandLine, startCall.Type}
+	command := &Command{
+		Name:        startCall.Name,
+		CommandLine: startCall.CommandLine,
+		Type:        startCall.Type,
+	}
 	if err := checkCommand(command); err != nil {
-		channel.EventsChannel <- core.NewErrorEvent(err)
-		return
+		return err
 	}
 
 	// Detecting subscription mask
 	subscriber := &Subscriber{
-		parseTypes(startCall.EventTypes),
-		channel.EventsChannel,
+		Mask:    parseTypes(startCall.EventTypes),
+		Channel: channel.EventsChannel,
 	}
 
-	if _, err := Start(command, subscriber); err != nil {
-		channel.EventsChannel <- core.NewErrorEvent(err)
-	}
+	_, err := Start(command, subscriber)
+	return err
 }
 
-func KillProcessCallHF(call interface{}, channel op.Channel) {
+func KillProcessCallHF(call interface{}, channel op.Channel) error {
 	killCall := call.(KillProcessCall)
 	p, ok := Get(killCall.Pid)
 	if !ok {
-		channel.EventsChannel <- core.NewErrorEvent(errors.New(fmt.Sprintf("No process with id '%s'", killCall.Pid)))
-		return
+		return errors.New(fmt.Sprintf("No process with id '%s'", killCall.Pid))
 	}
-	if err := p.Kill(); err != nil {
-		channel.EventsChannel <- core.NewErrorEvent(err)
-	}
+	return p.Kill()
 }
 
-func SubscribeToProcessCallHF(call interface{}, channel op.Channel) {
+func SubscribeToProcessCallHF(call interface{}, channel op.Channel) error {
 	subscribeCall := call.(SubscribeToProcessCall)
 
 	p, ok := Get(subscribeCall.Pid)
 
 	if !ok {
-		m := fmt.Sprintf("Process with id '%s' doesn't exist", subscribeCall.Pid)
-		channel.EventsChannel <- core.NewErrorEvent(errors.New(m))
-		return
+		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", subscribeCall.Pid))
 	}
 
-	subscriber := &Subscriber{parseTypes(subscribeCall.EventTypes), channel.EventsChannel}
+	subscriber := &Subscriber{
+		Mask:    parseTypes(subscribeCall.EventTypes),
+		Channel: channel.EventsChannel,
+	}
 
 	// Check whether subscriber should see previous logs or not
 	if subscribeCall.After == "" {
-		if err := p.AddSubscriber(subscriber); err != nil {
-			channel.EventsChannel <- core.NewErrorEvent(err)
-		}
-	} else {
-		after, err := time.Parse(DATE_TIME_FORMAT, subscribeCall.After)
-		if err != nil {
-			channel.EventsChannel <- core.NewErrorEvent(errors.New("Bad format of 'after', " + err.Error()))
-			return
-		}
-		if err := p.RestoreSubscriber(subscriber, after); err != nil {
-			channel.EventsChannel <- core.NewErrorEvent(err)
-		}
+		return p.AddSubscriber(subscriber)
 	}
+
+	after, err := time.Parse(DATE_TIME_FORMAT, subscribeCall.After)
+	if err != nil {
+		return errors.New("Bad format of 'after', " + err.Error())
+	}
+	return p.RestoreSubscriber(subscriber, after)
+
 }
