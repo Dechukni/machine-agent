@@ -6,7 +6,7 @@ import (
 	"github.com/evoevodin/machine-agent/process"
 	"log"
 	"net/http"
-	"github.com/evoevodin/machine-agent/core/rest"
+	"github.com/evoevodin/machine-agent/rest"
 )
 
 var (
@@ -21,7 +21,7 @@ var (
 )
 
 func main() {
-	fmt.Println("⇩ Registered HttpRoutes:\n")
+	fmt.Print("⇩ Registered HttpRoutes:\n\n")
 	for _, routesGroup := range AppHttpRoutes {
 		fmt.Printf("%s:\n", routesGroup.Name)
 		for _, route := range routesGroup.Items {
@@ -31,7 +31,7 @@ func main() {
 		fmt.Println()
 	}
 
-	fmt.Println("\n⇩ Registered OperationRoutes:\n")
+	fmt.Print("\n⇩ Registered OperationRoutes:\n\n")
 	for _, routesGroup := range AppOpRoutes {
 		fmt.Printf("%s:\n", routesGroup.Name)
 		for _, route := range routesGroup.Items {

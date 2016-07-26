@@ -1,8 +1,6 @@
 package op
 
-import (
-	"github.com/evoevodin/machine-agent/core/rest"
-)
+import "github.com/evoevodin/machine-agent/rest"
 
 var HttpRoutes = rest.RoutesGroup{
 	"Channel Routes",

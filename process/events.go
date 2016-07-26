@@ -1,9 +1,7 @@
 // TODO add subscribed event types
 package process
 
-import (
-	"github.com/evoevodin/machine-agent/core"
-)
+import "github.com/evoevodin/machine-agent/op"
 
 const (
 	PROCESS_STARTED = "process_started"
@@ -13,7 +11,7 @@ const (
 )
 
 type ProcessEvent struct {
-	core.Event
+	op.Event
 	Pid uint64 `json:"pid"`
 }
 

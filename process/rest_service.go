@@ -3,8 +3,6 @@ package process
 import (
 	"errors"
 	"fmt"
-	"github.com/evoevodin/machine-agent/core/rest"
-	"github.com/evoevodin/machine-agent/core/rest/restuitl"
 	"github.com/evoevodin/machine-agent/op"
 	"github.com/gorilla/mux"
 	"io"
@@ -12,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"github.com/evoevodin/machine-agent/rest"
+	"github.com/evoevodin/machine-agent/rest/restutil"
 )
 
 var HttpRoutes = rest.RoutesGroup{

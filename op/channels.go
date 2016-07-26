@@ -1,7 +1,6 @@
 package op
 
 import (
-	"github.com/evoevodin/machine-agent/core"
 	"github.com/gorilla/websocket"
 	"sync"
 	"time"
@@ -18,7 +17,7 @@ var (
 // Published when websocket connection is established
 // and channel is ready for interaction
 type ChannelEvent struct {
-	core.Event
+	Event
 	ChannelId string `json:"channel"`
 	Text      string `json:"text"`
 }

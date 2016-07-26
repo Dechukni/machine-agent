@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/evoevodin/machine-agent/core"
 	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
@@ -38,7 +37,12 @@ func registerChannel(w http.ResponseWriter, r *http.Request) error {
 	chanId := "channel-" + strconv.Itoa(int(atomic.AddUint64(&prevChanId, 1)))
 	connectedTime := time.Now()
 	eventsChan := make(chan interface{})
-	channel := Channel{chanId, connectedTime, eventsChan, conn}
+	channel := Channel{
+		Id:            chanId,
+		Connected:     connectedTime,
+		EventsChannel: eventsChan,
+		conn:          conn,
+	}
 	saveChannel(channel)
 
 	// Listen for the events from the machine-agent side
@@ -48,7 +52,7 @@ func registerChannel(w http.ResponseWriter, r *http.Request) error {
 
 	// Say hello to the client
 	eventsChan <- &ChannelEvent{
-		core.Event{
+		Event{
 			CONNECTED,
 			connectedTime,
 		},
@@ -72,7 +76,7 @@ func listenForCalls(conn *websocket.Conn, channel Channel) {
 
 		call := &Call{}
 		if err := json.Unmarshal(body, call); err != nil {
-			channel.EventsChannel <- core.NewErrorEvent(err)
+			channel.EventsChannel <- NewErrorEvent(err)
 		} else {
 			dispatchCall(call.Operation, body, channel)
 		}
@@ -98,7 +102,7 @@ func dispatchCall(operation string, body []byte, channel Channel) {
 	opRoute, ok := routes.get(operation)
 	if !ok {
 		m := fmt.Sprintf("No route for the operation '%s'", operation)
-		channel.EventsChannel <- core.NewErrorEvent(errors.New(m))
+		channel.EventsChannel <- NewErrorEvent(errors.New(m))
 		return
 	}
 
@@ -106,10 +110,10 @@ func dispatchCall(operation string, body []byte, channel Channel) {
 	call, err := opRoute.DecoderFunc(body)
 	if err != nil {
 		m := fmt.Sprintf("Error decoding Call for the operation '%s'. Error: '%s'\n", operation, err.Error())
-		channel.EventsChannel <- core.NewErrorEvent(errors.New(m))
+		channel.EventsChannel <- NewErrorEvent(errors.New(m))
 		return
 	}
 	if err := opRoute.HandlerFunc(call, channel); err != nil {
-		channel.EventsChannel <- core.NewErrorEvent(err)
+		channel.EventsChannel <- NewErrorEvent(err)
 	}
 }

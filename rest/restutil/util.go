@@ -5,13 +5,9 @@ import (
 	"net/http"
 )
 
-const (
-	APPLICATION_JSON = "application/json"
-)
-
 // Writes body as json to the response writer
 func WriteJson(w http.ResponseWriter, body interface{}) error {
-	w.Header().Set("Content-Type", APPLICATION_JSON)
+	w.Header().Set("Content-Type", "application/json")
 	return json.NewEncoder(w).Encode(body)
 }
 

@@ -3,7 +3,7 @@ package process
 
 import (
 	"errors"
-	"github.com/evoevodin/machine-agent/core"
+	"github.com/evoevodin/machine-agent/op"
 	"os"
 	"os/exec"
 	"strconv"
@@ -158,7 +158,7 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 	// before pumping is started publish process_started event
 	process.publish(&ProcessStatusEvent{
 		ProcessEvent{
-			core.Event{
+			op.Event{
 				PROCESS_STARTED,
 				time.Now(),
 			},
@@ -290,7 +290,7 @@ func (process *MachineProcess) OnStderr(line string, time time.Time) {
 func (process *MachineProcess) Close() {
 	process.publish(&ProcessStatusEvent{
 		ProcessEvent{
-			core.Event{
+			op.Event{
 				PROCESS_DIED,
 				time.Now(),
 			},
@@ -340,7 +340,7 @@ func tryWrite(eventsChan chan interface{}, event interface{}) (ok bool) {
 func newOutputEvent(pid uint64, kind string, line string, time time.Time) *ProcessOutputEvent {
 	return &ProcessOutputEvent{
 		ProcessEvent{
-			core.Event{
+			op.Event{
 				kind,
 				time,
 			},
