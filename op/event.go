@@ -11,7 +11,7 @@ type Event struct {
 // The error events, if any error occurs during operation Call processing
 type ErrorEvent struct {
 	Event
-	Message string
+	Message string `json:"message"`
 }
 
 // Creates a new error event from the event

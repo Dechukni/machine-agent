@@ -82,3 +82,16 @@ The first event in the channel, published when client successfully connected to 
 }
 ```
 
+
+Error event
+---
+
+Published when any error occurred during Call processing
+
+```json
+{
+    "type" : "error",
+    "time" : "2016-06-15T20:29:44.437650129+03:00"
+    "message" : "No process with id '123''",
+}
+```
