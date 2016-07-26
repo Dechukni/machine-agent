@@ -236,7 +236,7 @@ func (mp *MachineProcess) AddSubscriber(subscriber *Subscriber) error {
 
 // Adds a new process subscriber by reading all the logs between
 // given 'after' and now and publishing them to the channel
-func (mp *MachineProcess) AddBackwardSubscriber(subscriber *Subscriber, after time.Time) error {
+func (mp *MachineProcess) RestoreSubscriber(subscriber *Subscriber, after time.Time) error {
 	mp.subs.Lock()
 	defer mp.subs.Unlock()
 	for _, sub := range mp.subs.items {

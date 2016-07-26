@@ -226,15 +226,14 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) error {
 	// Check whether subscriber should see previous process logs
 	afterStr := r.URL.Query().Get("after")
 	if afterStr == "" {
-		p.AddSubscriber(subscriber)
-	} else {
-		after, err := time.Parse(DATE_TIME_FORMAT, afterStr)
-		if err != nil {
-			return rest.BadRequest(errors.New("Bad format of 'after', " + err.Error()))
-		}
-		p.AddBackwardSubscriber(subscriber, after)
+		return p.AddSubscriber(subscriber)
 	}
-	return nil
+	after, err := time.Parse(DATE_TIME_FORMAT, afterStr)
+	if err != nil {
+		return rest.BadRequest(errors.New("Bad format of 'after', " + err.Error()))
+	}
+	return p.RestoreSubscriber(subscriber, after)
+
 }
 
 func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) error {

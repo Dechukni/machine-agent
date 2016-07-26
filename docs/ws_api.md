@@ -37,11 +37,14 @@ Process API
 - __pid__ - the id of the process to subscribe to
 - __eventTypes__(optional) - comma separated types of events which will be
 received by this channel. By default all the process events will be received.
+- __after__(optional) - process logs which appeared after given time will
+be republished to the channel. This parameter may be useful when reconnecting to the machine-agent
 
 ```json
 {
     "operation" : "process.subscribe",
     "pid" : 123,
-    "eventTypes" : "stdout,stderr"
+    "eventTypes" : "stdout,stderr",
+    "after" : "2016-07-26T09:36:44.920890113+03:00"
 }
 ```

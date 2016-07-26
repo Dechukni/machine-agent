@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/evoevodin/machine-agent/core"
 	"github.com/evoevodin/machine-agent/op"
+	"time"
 )
 
 const (
@@ -66,6 +67,7 @@ type SubscribeToProcessCall struct {
 	op.Call
 	Pid        uint64 `json:"pid"`
 	EventTypes string `json:"eventTypes"`
+	After      string `json:"after"`
 }
 
 func StartProcessCallHF(call interface{}, channel op.Channel) {
@@ -112,11 +114,21 @@ func SubscribeToProcessCallHF(call interface{}, channel op.Channel) {
 		return
 	}
 
-	err := p.AddSubscriber(&Subscriber{
-		parseTypes(subscribeCall.EventTypes),
-		channel.EventsChannel,
-	})
-	if err != nil {
-		channel.EventsChannel <- core.NewErrorEvent(err)
+	subscriber := &Subscriber{parseTypes(subscribeCall.EventTypes), channel.EventsChannel}
+
+	// Check whether subscriber should see previous logs or not
+	if subscribeCall.After == "" {
+		if err := p.AddSubscriber(subscriber); err != nil {
+			channel.EventsChannel <- core.NewErrorEvent(err)
+		}
+	} else {
+		after, err := time.Parse(DATE_TIME_FORMAT, subscribeCall.After)
+		if err != nil {
+			channel.EventsChannel <- core.NewErrorEvent(errors.New("Bad format of 'after', " + err.Error()))
+			return
+		}
+		if err := p.RestoreSubscriber(subscriber, after); err != nil {
+			channel.EventsChannel <- core.NewErrorEvent(err)
+		}
 	}
 }
