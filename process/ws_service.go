@@ -11,7 +11,7 @@ import (
 
 const (
 	PROCESS_START     = "process.start"
-	PROCESS_KILL      = "prcess.kill"
+	PROCESS_KILL      = "process.kill"
 	PROCESS_SUBSCRIBE = "process.subscribe"
 )
 
@@ -25,19 +25,8 @@ var OpRoutes = op.RoutesGroup{
 				err := json.Unmarshal(body, &call)
 				return call, err
 			},
-			func(apiCall interface{}, channel op.Channel) {
-				startCall := apiCall.(StartProcessCall)
-				Start(&Command{
-					startCall.Name,
-					startCall.CommandLine,
-					startCall.Type,
-				}, &Subscriber{
-					DEFAULT_MASK,
-					channel.EventsChannel,
-				})
-			},
+			StartProcessCallHF,
 		},
-
 		{
 			PROCESS_KILL,
 			func(body []byte) (interface{}, error) {
@@ -45,16 +34,8 @@ var OpRoutes = op.RoutesGroup{
 				err := json.Unmarshal(body, &call)
 				return call, err
 			},
-			func(apiCall interface{}, channel op.Channel) {
-				killCall := apiCall.(KillProcessCall)
-				p, ok := Get(killCall.Pid)
-				// TODO handle not ok
-				if ok {
-					p.Kill()
-				}
-			},
+			KillProcessCallHF,
 		},
-
 		{
 			PROCESS_SUBSCRIBE,
 			func(body []byte) (interface{}, error) {
@@ -62,30 +43,7 @@ var OpRoutes = op.RoutesGroup{
 				err := json.Unmarshal(body, &call)
 				return call, err
 			},
-			func(apiCall interface{}, channel op.Channel) {
-				subscribeCall := apiCall.(SubscribeToProcessCall)
-
-				p, ok := Get(subscribeCall.Pid)
-
-				if !ok {
-					m := fmt.Sprintf("Process with id '%s' doesn't exist", subscribeCall.Pid)
-					channel.EventsChannel <- core.NewErrorEvent(errors.New(m))
-					return
-				}
-
-				// Parsing mask and adding a new subscriber
-				var mask uint64 = DEFAULT_MASK
-				if subscribeCall.Types != "" {
-					mask = maskFromTypes(subscribeCall.Types)
-				}
-				err := p.AddSubscriber(&Subscriber{
-					mask,
-					channel.EventsChannel,
-				})
-				if err != nil {
-					channel.EventsChannel <- core.NewErrorEvent(err)
-				}
-			},
+			SubscribeToProcessCallHF,
 		},
 	},
 }
@@ -95,6 +53,7 @@ type StartProcessCall struct {
 	Name        string `json:"name"`
 	CommandLine string `json:"commandLine"`
 	Type        string `json:"type"`
+	EventTypes  string `json:"eventTypes"`
 }
 
 type KillProcessCall struct {
@@ -105,7 +64,59 @@ type KillProcessCall struct {
 
 type SubscribeToProcessCall struct {
 	op.Call
-	Pid   uint64 `json:"pid"`
-	Types string `json:"types"`
+	Pid        uint64 `json:"pid"`
+	EventTypes string `json:"eventTypes"`
 }
 
+func StartProcessCallHF(call interface{}, channel op.Channel) {
+	startCall := call.(StartProcessCall)
+
+	// Creating command
+	command := &Command{startCall.Name, startCall.CommandLine, startCall.Type}
+	if err := checkCommand(command); err != nil {
+		channel.EventsChannel <- core.NewErrorEvent(err)
+		return
+	}
+
+	// Detecting subscription mask
+	subscriber := &Subscriber{
+		parseTypes(startCall.EventTypes),
+		channel.EventsChannel,
+	}
+
+	if _, err := Start(command, subscriber); err != nil {
+		channel.EventsChannel <- core.NewErrorEvent(err)
+	}
+}
+
+func KillProcessCallHF(call interface{}, channel op.Channel) {
+	killCall := call.(KillProcessCall)
+	p, ok := Get(killCall.Pid)
+	if !ok {
+		channel.EventsChannel <- core.NewErrorEvent(errors.New(fmt.Sprintf("No process with id '%s'", killCall.Pid)))
+		return
+	}
+	if err := p.Kill(); err != nil {
+		channel.EventsChannel <- core.NewErrorEvent(err)
+	}
+}
+
+func SubscribeToProcessCallHF(call interface{}, channel op.Channel) {
+	subscribeCall := call.(SubscribeToProcessCall)
+
+	p, ok := Get(subscribeCall.Pid)
+
+	if !ok {
+		m := fmt.Sprintf("Process with id '%s' doesn't exist", subscribeCall.Pid)
+		channel.EventsChannel <- core.NewErrorEvent(errors.New(m))
+		return
+	}
+
+	err := p.AddSubscriber(&Subscriber{
+		parseTypes(subscribeCall.EventTypes),
+		channel.EventsChannel,
+	})
+	if err != nil {
+		channel.EventsChannel <- core.NewErrorEvent(err)
+	}
+}

@@ -99,10 +99,10 @@ func dispatchCall(operation string, body []byte, channel Channel) {
 	}
 
 	// Dispatch call
-	apiCall, err := opRoute.DecoderFunc(body)
+	call, err := opRoute.DecoderFunc(body)
 	if err != nil {
 		// TODO mb respond with an error event?
 		fmt.Printf("Error decoding Call for the operation '%s'. Error: '%s'\n", operation, err.Error())
 	}
-	opRoute.HandlerFunc(apiCall, channel)
+	opRoute.HandlerFunc(call, channel)
 }

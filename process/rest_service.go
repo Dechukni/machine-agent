@@ -85,14 +85,7 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) error {
 			m := fmt.Sprintf("Channel with id '%s' doesn't exist. Process won't be started", channelId)
 			return rest.NotFound(errors.New(m))
 		}
-
-		var mask uint64 = DEFAULT_MASK
-		types := r.URL.Query().Get("types")
-		if types != "" {
-			mask = maskFromTypes(types)
-		}
-
-		subscriber = &Subscriber{mask, channel.EventsChannel}
+		subscriber = &Subscriber{parseTypes(r.URL.Query().Get("types")), channel.EventsChannel}
 	}
 
 	process, err := Start(&command, subscriber)
@@ -228,7 +221,7 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) error {
 		return errors.New(fmt.Sprintf("Channel with id '%s' doesn't exist", channelId))
 	}
 
-	subscriber := &Subscriber{DEFAULT_MASK, channel.EventsChannel}
+	subscriber := &Subscriber{parseTypes(r.URL.Query().Get("types")), channel.EventsChannel}
 
 	// Check whether subscriber should see previous process logs
 	afterStr := r.URL.Query().Get("after")
@@ -286,6 +279,14 @@ func maskFromTypes(types string) uint64 {
 		case "process_status":
 			mask |= PROCESS_STATUS_BIT
 		}
+	}
+	return mask
+}
+
+func parseTypes(types string) uint64 {
+	var mask uint64 = DEFAULT_MASK
+	if types != "" {
+		mask = maskFromTypes(types)
 	}
 	return mask
 }
