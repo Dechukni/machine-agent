@@ -176,7 +176,7 @@ func UpdateProcessSubscriberCallHF(call interface{}, channel op.Channel) error {
 		return errors.New(fmt.Sprintf("No process with id '%d'", updateCall.Pid))
 	}
 	if updateCall.EventTypes == "" {
-		return errors.New("Subscription 'eventTypes' required")
+		return errors.New("'eventTypes' required for subscriber update")
 	}
 	p.UpdateSubscriber(channel.EventsChannel, maskFromTypes(updateCall.EventTypes))
 	return nil
