@@ -4,14 +4,14 @@ import (
 	"errors"
 	"fmt"
 	"github.com/evoevodin/machine-agent/op"
+	"github.com/evoevodin/machine-agent/rest"
+	"github.com/evoevodin/machine-agent/rest/restutil"
 	"github.com/gorilla/mux"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
-	"github.com/evoevodin/machine-agent/rest"
-	"github.com/evoevodin/machine-agent/rest/restutil"
 )
 
 var HttpRoutes = rest.RoutesGroup{

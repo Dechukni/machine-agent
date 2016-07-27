@@ -48,3 +48,14 @@ be republished to the channel. This parameter may be useful when reconnecting to
     "after" : "2016-07-26T09:36:44.920890113+03:00"
 }
 ```
+
+### Unsubscribe from process events
+
+- __pid__ - the id of the process to subscribe to
+
+```json
+{
+    "operation" : "process.unsubscribe",
+    "pid" : 123
+}
+```
