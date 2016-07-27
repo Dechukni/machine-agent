@@ -69,3 +69,10 @@ func saveChannel(channel Channel) bool {
 	channels.items[channel.Id] = channel
 	return true
 }
+
+// Removes channel
+func removeChannel(channel Channel) {
+	channels.Lock()
+	defer channels.Unlock()
+	delete(channels.items, channel.Id)
+}

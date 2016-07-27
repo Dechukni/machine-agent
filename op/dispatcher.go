@@ -70,7 +70,14 @@ func listenForCalls(conn *websocket.Conn, channel Channel) {
 			if !websocket.IsCloseError(err, 1005) {
 				log.Println("Error reading message, " + err.Error())
 			}
+
+			// Cleanup channel resources
 			close(channel.EventsChannel)
+			err = channel.conn.Close()
+			if err != nil {
+				log.Println("Error closing connection, " + err.Error())
+			}
+			removeChannel(channel)
 			break
 		}
 
