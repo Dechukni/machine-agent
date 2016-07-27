@@ -51,11 +51,25 @@ be republished to the channel. This parameter may be useful when reconnecting to
 
 ### Unsubscribe from process events
 
-- __pid__ - the id of the process to subscribe to
+- __pid__ - the id of the process to unsubscribe from
 
 ```json
 {
     "operation" : "process.unsubscribe",
     "pid" : 123
+}
+```
+
+### Update process subscriber
+
+- __pid__ - the id of the process which subscriber should be updated
+- __eventTypes__ - comma separated types of events which will be
+received by this channel.
+
+```json
+{
+    "operation" : "process.updateSubscriber",
+    "pid" : 123,
+    "eventTypes": "process_status,stderr"
 }
 ```

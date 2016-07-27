@@ -10,10 +10,11 @@ import (
 )
 
 const (
-	PROCESS_START       = "process.start"
-	PROCESS_KILL        = "process.kill"
-	PROCESS_SUBSCRIBE   = "process.subscribe"
-	PROCESS_UNSUBSCRIBE = "process.unsubscribe"
+	PROCESS_START             = "process.start"
+	PROCESS_KILL              = "process.kill"
+	PROCESS_SUBSCRIBE         = "process.subscribe"
+	PROCESS_UNSUBSCRIBE       = "process.unsubscribe"
+	PROCESS_UPDATE_SUBSCRIBER = "process.updateSubscriber"
 )
 
 var OpRoutes = op.RoutesGroup{
@@ -55,6 +56,15 @@ var OpRoutes = op.RoutesGroup{
 			},
 			UnsubscribeFromProcessCallHF,
 		},
+		{
+			PROCESS_UPDATE_SUBSCRIBER,
+			func (body []byte) (interface{}, error) {
+				call := UpdateProcessSubscriberCall{}
+				err := json.Unmarshal(body, &call)
+				return call, err
+			},
+			UpdateProcessSubscriberCallHF,
+		},
 	},
 }
 
@@ -82,6 +92,12 @@ type SubscribeToProcessCall struct {
 type UnsubscribeFromProcessCall struct {
 	op.Call
 	Pid uint64 `json:"pid"`
+}
+
+type UpdateProcessSubscriberCall struct {
+	op.Call
+	Pid        uint64 `json:"pid"`
+	EventTypes string `json:"eventTypes"`
 }
 
 func StartProcessCallHF(call interface{}, channel op.Channel) error {
@@ -150,5 +166,18 @@ func UnsubscribeFromProcessCallHF(call interface{}, channel op.Channel) error {
 		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", unsubscribeCall.Pid))
 	}
 	p.RemoveSubscriber(channel.EventsChannel)
+	return nil
+}
+
+func UpdateProcessSubscriberCallHF(call interface{}, channel op.Channel) error {
+	updateCall := call.(UpdateProcessSubscriberCall)
+	p, ok := Get(updateCall.Pid)
+	if !ok {
+		return errors.New(fmt.Sprintf("No process with id '%d'", updateCall.Pid))
+	}
+	if updateCall.EventTypes == "" {
+		return errors.New("Subscription 'eventTypes' required")
+	}
+	p.UpdateSubscriber(channel.EventsChannel, maskFromTypes(updateCall.EventTypes))
 	return nil
 }

@@ -47,7 +47,7 @@ type channelsMap struct {
 	items map[string]Channel
 }
 
-// Gets channel by the channel id, if there is not such channel
+// Gets channel by the channel id, if there is no such channel
 // then returned 'ok' is false
 func GetChannel(chanId string) (Channel, bool) {
 	channels.RLock()
