@@ -12,7 +12,6 @@ import (
 )
 
 const (
-	// TODO configure with a flag
 	flushThreshold = 8192
 	STDOUT_KIND    = "STDOUT"
 	STDERR_KIND    = "STDERR"
@@ -57,6 +56,10 @@ func (fl *FileLogger) Close() {
 	fl.flush()
 }
 
+// Reads logs between [from, till] inclusive.
+// Returns an error if logs file is missing, or
+// decoding of file content failed.
+// If no logs matched time frame, an empty slice will be returned.
 func (fl *FileLogger) ReadLogs(from time.Time, till time.Time) ([]*LogMessage, error) {
 	// Flushing all the logs available before 'till'
 	fl.Lock()
@@ -106,7 +109,8 @@ func (fl *FileLogger) flush() {
 	f, err := os.OpenFile(fl.filename, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0666)
 	if err != nil {
 		log.Printf("Couldn't open file '%s' for flushing the buffer. %s \n", fl.filename, err.Error())
+	} else {
+		defer f.Close()
+		fl.buffer.WriteTo(f)
 	}
-	defer f.Close()
-	fl.buffer.WriteTo(f)
 }
