@@ -26,13 +26,14 @@ type LogMessage struct {
 type FileLogger struct {
 	sync.RWMutex
 	filename string
-	buffer   bytes.Buffer
+	buffer   *bytes.Buffer
 	encoder  *json.Encoder
 }
 
 func NewLogger(filename string) (*FileLogger, error) {
 	fl := &FileLogger{filename: filename}
-	fl.encoder = json.NewEncoder(&fl.buffer)
+	fl.buffer = &bytes.Buffer{}
+	fl.encoder = json.NewEncoder(fl.buffer)
 
 	// Trying to create logs file
 	file, err := os.Create(filename)
@@ -53,7 +54,11 @@ func (fl *FileLogger) OnStderr(line string, time time.Time) {
 }
 
 func (fl *FileLogger) Close() {
+	fl.Lock()
 	fl.flush()
+	fl.buffer = nil
+	fl.encoder = nil
+	fl.Unlock()
 }
 
 // Reads logs between [from, till] inclusive.
@@ -63,7 +68,9 @@ func (fl *FileLogger) Close() {
 func (fl *FileLogger) ReadLogs(from time.Time, till time.Time) ([]*LogMessage, error) {
 	// Flushing all the logs available before 'till'
 	fl.Lock()
-	fl.flush()
+	if fl.buffer != nil {
+		fl.flush()
+	}
 	fl.Unlock()
 
 	// Trying to open the logs file for reading logs
