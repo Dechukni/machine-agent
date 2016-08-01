@@ -161,7 +161,7 @@ func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) error {
 			line := fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time.Format(DATE_TIME_FORMAT), item.Text)
 			io.WriteString(w, line)
 		}
-	case "json":
+	default:
 		return restutil.WriteJson(w, logs)
 	}
 	return nil
