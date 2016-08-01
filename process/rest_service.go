@@ -164,7 +164,7 @@ func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) error {
 	case "json":
 		return restutil.WriteJson(w, logs)
 	}
-	return restutil.WriteJson(w, logs)
+	return nil
 }
 
 func GetProcessesHF(w http.ResponseWriter, r *http.Request) error {

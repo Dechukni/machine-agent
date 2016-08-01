@@ -3,6 +3,7 @@ package process
 
 import (
 	"errors"
+	"flag"
 	"github.com/evoevodin/machine-agent/op"
 	"os"
 	"os/exec"
@@ -23,8 +24,9 @@ const (
 )
 
 var (
+	logsDir   string
 	prevPid   uint64 = 0
-	processes        = &MachineProcesses{items: make(map[uint64]*MachineProcess)}
+	processes        = &processesMap{items: make(map[uint64]*MachineProcess)}
 )
 
 type Command struct {
@@ -70,14 +72,14 @@ type MachineProcess struct {
 
 	// Process subscribers, all the outgoing events are go through those subscribers.
 	// If process is not alive then the subscribers value is set to nil
-	subs *subscribers
+	subs *subscribersList
 
 	// Process file logger
 	fileLogger *FileLogger
 }
 
 // Lockable map for storing processes
-type MachineProcesses struct {
+type processesMap struct {
 	sync.RWMutex
 	items map[uint64]*MachineProcess
 }
@@ -87,9 +89,15 @@ type Subscriber struct {
 	Channel chan interface{}
 }
 
-type subscribers struct {
+type subscribersList struct {
 	sync.RWMutex
 	items []*Subscriber
+}
+
+func init() {
+	curDir, _ := os.Getwd()
+	curDir += string(os.PathSeparator) + "logs"
+	flag.StringVar(&logsDir, "logs-dir", curDir, "Directory for process logs")
 }
 
 func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, error) {
@@ -117,8 +125,6 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 	// increment current pid & assign it to the value
 	pid := atomic.AddUint64(&prevPid, 1)
 
-	// FIXME: remove as it will be configurable with a flag
-	logsDir := os.Getenv("GOPATH") + "/src/github.com/evoevodin/machine-agent/logs"
 	if _, err := os.Stat(logsDir); os.IsNotExist(err) {
 		err = os.MkdirAll(logsDir, 0777)
 		if err != nil {
@@ -142,7 +148,7 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 		command:     cmd,
 		pumper:      NewPumper(stdout, stderr),
 		fileLogger:  fileLogger,
-		subs:        &subscribers{},
+		subs:        &subscribersList{},
 	}
 	if firstSubscriber != nil {
 		process.AddSubscriber(firstSubscriber)

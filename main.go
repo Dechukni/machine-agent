@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"github.com/evoevodin/machine-agent/rest"
+	"flag"
 )
 
 var (
@@ -21,6 +22,8 @@ var (
 )
 
 func main() {
+	flag.Parse()
+
 	fmt.Print("⇩ Registered HttpRoutes:\n\n")
 	for _, routesGroup := range AppHttpRoutes {
 		fmt.Printf("%s:\n", routesGroup.Name)
