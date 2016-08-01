@@ -218,7 +218,7 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) error {
 	// Getting channel
 	channel, ok := op.GetChannel(channelId)
 	if !ok {
-		return errors.New(fmt.Sprintf("Channel with id '%s' doesn't exist", channelId))
+		return rest.NotFound(errors.New(fmt.Sprintf("Channel with id '%s' doesn't exist", channelId)))
 	}
 
 	subscriber := &Subscriber{parseTypes(r.URL.Query().Get("types")), channel.EventsChannel}
