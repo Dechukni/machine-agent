@@ -103,42 +103,6 @@ func TestLogsAreFlushedOnClose(t *testing.T) {
 	os.Remove(filename)
 }
 
-func TestReadLogs(t *testing.T) {
-	filename := os.TempDir() + string(os.PathSeparator) + randomName(10)
-
-	fl, err := process.NewLogger(filename)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Write something to the log
-	now := time.Now()
-	fl.OnStdout("line1", now.Add(time.Second))
-	fl.OnStdout("line2", now.Add(time.Second*2))
-	fl.OnStdout("line3", now.Add(time.Second*3))
-	fl.OnStdout("line4", now.Add(time.Second*4))
-	fl.OnStdout("line5", now.Add(time.Second*5))
-	fl.Close()
-
-	// Read logs [2, 4]
-	logs, err := fl.ReadLogs(now.Add(time.Second*2), now.Add(time.Second*4))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Check everything is okay
-	expected := []process.LogMessage{
-		{Kind: process.STDOUT_KIND, Time: now.Add(time.Second * 2), Text: "line2"},
-		{Kind: process.STDOUT_KIND, Time: now.Add(time.Second * 3), Text: "line3"},
-		{Kind: process.STDOUT_KIND, Time: now.Add(time.Second * 4), Text: "line4"},
-	}
-	for i := 0; i < len(logs); i++ {
-		if *logs[i] != expected[i] {
-			t.Fatalf("Expected: '%v' Found '%v'", expected[i], *logs[i])
-		}
-	}
-}
-
 func randomName(length int) string {
 	rand.Seed(time.Now().UnixNano())
 	bytes := make([]byte, length)

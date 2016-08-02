@@ -21,6 +21,9 @@ const (
 	DEFAULT_MASK       = STDERR_BIT | STDOUT_BIT | PROCESS_STATUS_BIT
 
 	DATE_TIME_FORMAT = time.RFC3339Nano
+
+	STDOUT_KIND = "STDOUT"
+	STDERR_KIND = "STDERR"
 )
 
 var (
@@ -74,14 +77,11 @@ type MachineProcess struct {
 	// If process is not alive then the subscribers value is set to nil
 	subs *subscribersList
 
+	// Process log filename
+	logfileName string
+
 	// Process file logger
 	fileLogger *FileLogger
-}
-
-// Lockable map for storing processes
-type processesMap struct {
-	sync.RWMutex
-	items map[uint64]*MachineProcess
 }
 
 type Subscriber struct {
@@ -89,9 +89,22 @@ type Subscriber struct {
 	Channel chan interface{}
 }
 
+type LogMessage struct {
+	Kind string
+	Time time.Time
+	Text string
+}
+
+// Lockable array for storing process subscribers
 type subscribersList struct {
 	sync.RWMutex
 	items []*Subscriber
+}
+
+// Lockable map for storing processes
+type processesMap struct {
+	sync.RWMutex
+	items map[uint64]*MachineProcess
 }
 
 func init() {
@@ -132,7 +145,8 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 		}
 	}
 
-	fileLogger, err := NewLogger(logsDir + "/" + strconv.Itoa(int(pid)))
+	filename := logsDir + "/" + strconv.Itoa(int(pid))
+	fileLogger, err := NewLogger(filename)
 	if err != nil {
 		return nil, err
 	}
@@ -147,6 +161,7 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 		NativePid:   cmd.Process.Pid,
 		command:     cmd,
 		pumper:      NewPumper(stdout, stderr),
+		logfileName: filename,
 		fileLogger:  fileLogger,
 		subs:        &subscribersList{},
 	}
@@ -211,7 +226,11 @@ func (mp *MachineProcess) Kill() error {
 }
 
 func (mp *MachineProcess) ReadLogs(from time.Time, till time.Time) ([]*LogMessage, error) {
-	return mp.fileLogger.ReadLogs(from, till)
+	fl := mp.fileLogger
+	if mp.Alive {
+		fl.Flush()
+	}
+	return NewLogsReader(mp.logfileName).From(from).Till(till).ReadLogs()
 }
 
 func (mp *MachineProcess) RemoveSubscriber(subChannel chan interface{}) {
