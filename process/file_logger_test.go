@@ -84,7 +84,7 @@ func TestLogsAreFlushedOnClose(t *testing.T) {
 
 	// Check logs are okay
 	expectedStdout := process.LogMessage{
-		Kind: process.STDOUT_KIND,
+		Kind: process.StdoutKind,
 		Time: now,
 		Text: "stdout",
 	}
@@ -92,7 +92,7 @@ func TestLogsAreFlushedOnClose(t *testing.T) {
 		t.Fatalf("Expected %v but found %v", expectedStdout, stdout)
 	}
 	expectedStderr := process.LogMessage{
-		Kind: process.STDERR_KIND,
+		Kind: process.StderrKind,
 		Time: now,
 		Text: "stderr",
 	}

@@ -158,7 +158,7 @@ func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) error {
 	switch strings.ToLower(format) {
 	case "text":
 		for _, item := range logs {
-			line := fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time.Format(DATE_TIME_FORMAT), item.Text)
+			line := fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time.Format(DateTimeFormat), item.Text)
 			io.WriteString(w, line)
 		}
 	default:
@@ -228,7 +228,7 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) error {
 	if afterStr == "" {
 		return p.AddSubscriber(subscriber)
 	}
-	after, err := time.Parse(DATE_TIME_FORMAT, afterStr)
+	after, err := time.Parse(DateTimeFormat, afterStr)
 	if err != nil {
 		return rest.BadRequest(errors.New("Bad format of 'after', " + err.Error()))
 	}
@@ -272,18 +272,18 @@ func maskFromTypes(types string) uint64 {
 	for _, t := range strings.Split(types, ",") {
 		switch strings.ToLower(strings.TrimSpace(t)) {
 		case "stderr":
-			mask |= STDERR_BIT
+			mask |= StderrBit
 		case "stdout":
-			mask |= STDOUT_BIT
+			mask |= StdoutBit
 		case "process_status":
-			mask |= PROCESS_STATUS_BIT
+			mask |= ProcessStatusBit
 		}
 	}
 	return mask
 }
 
 func parseTypes(types string) uint64 {
-	var mask uint64 = DEFAULT_MASK
+	var mask uint64 = DefaultMask
 	if types != "" {
 		mask = maskFromTypes(types)
 	}

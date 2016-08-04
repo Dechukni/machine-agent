@@ -42,11 +42,11 @@ func (fl *FileLogger) Flush() {
 }
 
 func (fl *FileLogger) OnStdout(line string, time time.Time) {
-	fl.writeLine(&LogMessage{STDOUT_KIND, time, line})
+	fl.writeLine(&LogMessage{StdoutKind, time, line})
 }
 
 func (fl *FileLogger) OnStderr(line string, time time.Time) {
-	fl.writeLine(&LogMessage{STDERR_KIND, time, line})
+	fl.writeLine(&LogMessage{StderrKind, time, line})
 }
 
 func (fl *FileLogger) Close() {

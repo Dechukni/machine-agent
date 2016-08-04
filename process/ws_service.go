@@ -1,4 +1,3 @@
-// TODO add subscribe api calls
 package process
 
 import (
@@ -10,98 +9,95 @@ import (
 )
 
 const (
-	PROCESS_START             = "process.start"
-	PROCESS_KILL              = "process.kill"
-	PROCESS_SUBSCRIBE         = "process.subscribe"
-	PROCESS_UNSUBSCRIBE       = "process.unsubscribe"
-	PROCESS_UPDATE_SUBSCRIBER = "process.updateSubscriber"
+	ProcessStartOp            = "process.start"
+	ProcessKillOp             = "process.kill"
+	ProcessSubscribeOp        = "process.subscribe"
+	ProcessUnsubscribeOp      = "process.unsubscribe"
+	ProcessUpdateSubscriberOp = "process.updateSubscriber"
+
+	NoSuchProcessErrorCode = 20000
 )
 
 var OpRoutes = op.RoutesGroup{
 	"Process Routes",
 	[]op.Route{
 		{
-			PROCESS_START,
+			ProcessStartOp,
 			func(body []byte) (interface{}, error) {
-				call := StartProcessCall{}
-				err := json.Unmarshal(body, &call)
-				return call, err
+				b := StartProcessCallBody{}
+				err := json.Unmarshal(body, &b)
+				return b, err
 			},
 			StartProcessCallHF,
 		},
 		{
-			PROCESS_KILL,
+			ProcessKillOp,
 			func(body []byte) (interface{}, error) {
-				call := KillProcessCall{}
-				err := json.Unmarshal(body, &call)
-				return call, err
+				b := KillProcessCallBody{}
+				err := json.Unmarshal(body, &b)
+				return b, err
 			},
 			KillProcessCallHF,
 		},
 		{
-			PROCESS_SUBSCRIBE,
+			ProcessSubscribeOp,
 			func(body []byte) (interface{}, error) {
-				call := SubscribeToProcessCall{}
-				err := json.Unmarshal(body, &call)
-				return call, err
+				b := SubscribeToProcessCallBody{}
+				err := json.Unmarshal(body, &b)
+				return b, err
 			},
 			SubscribeToProcessCallHF,
 		},
 		{
-			PROCESS_UNSUBSCRIBE,
+			ProcessUnsubscribeOp,
 			func(body []byte) (interface{}, error) {
-				call := UnsubscribeFromProcessCall{}
-				err := json.Unmarshal(body, &call)
-				return call, err
+				b := UnsubscribeFromProcessCallBody{}
+				err := json.Unmarshal(body, &b)
+				return b, err
 			},
 			UnsubscribeFromProcessCallHF,
 		},
 		{
-			PROCESS_UPDATE_SUBSCRIBER,
-			func (body []byte) (interface{}, error) {
-				call := UpdateProcessSubscriberCall{}
-				err := json.Unmarshal(body, &call)
-				return call, err
+			ProcessUpdateSubscriberOp,
+			func(body []byte) (interface{}, error) {
+				b := UpdateProcessSubscriberCallBody{}
+				err := json.Unmarshal(body, &b)
+				return b, err
 			},
 			UpdateProcessSubscriberCallHF,
 		},
 	},
 }
 
-type StartProcessCall struct {
-	op.Call
+type StartProcessCallBody struct {
 	Name        string `json:"name"`
 	CommandLine string `json:"commandLine"`
 	Type        string `json:"type"`
 	EventTypes  string `json:"eventTypes"`
 }
 
-type KillProcessCall struct {
-	op.Call
+type KillProcessCallBody struct {
 	Pid       uint64 `json:"pid"`
 	NativePid uint64 `json:"nativePid"`
 }
 
-type SubscribeToProcessCall struct {
-	op.Call
+type SubscribeToProcessCallBody struct {
 	Pid        uint64 `json:"pid"`
 	EventTypes string `json:"eventTypes"`
 	After      string `json:"after"`
 }
 
-type UnsubscribeFromProcessCall struct {
-	op.Call
+type UnsubscribeFromProcessCallBody struct {
 	Pid uint64 `json:"pid"`
 }
 
-type UpdateProcessSubscriberCall struct {
-	op.Call
+type UpdateProcessSubscriberCallBody struct {
 	Pid        uint64 `json:"pid"`
 	EventTypes string `json:"eventTypes"`
 }
 
-func StartProcessCallHF(call interface{}, channel op.Channel) error {
-	startCall := call.(StartProcessCall)
+func StartProcessCallHF(body interface{}, channel op.Channel) error {
+	startCall := body.(StartProcessCallBody)
 
 	// Creating command
 	command := &Command{
@@ -110,7 +106,7 @@ func StartProcessCallHF(call interface{}, channel op.Channel) error {
 		Type:        startCall.Type,
 	}
 	if err := checkCommand(command); err != nil {
-		return err
+		return op.NewArgsError(err)
 	}
 
 	// Detecting subscription mask
@@ -123,61 +119,62 @@ func StartProcessCallHF(call interface{}, channel op.Channel) error {
 	return err
 }
 
-func KillProcessCallHF(call interface{}, channel op.Channel) error {
-	killCall := call.(KillProcessCall)
-	p, ok := Get(killCall.Pid)
+func KillProcessCallHF(body interface{}, channel op.Channel) error {
+	killBody := body.(KillProcessCallBody)
+	p, ok := Get(killBody.Pid)
 	if !ok {
-		return errors.New(fmt.Sprintf("No process with id '%s'", killCall.Pid))
+		return newNoSuchProcessError(killBody.Pid)
 	}
 	return p.Kill()
 }
 
-func SubscribeToProcessCallHF(call interface{}, channel op.Channel) error {
-	subscribeCall := call.(SubscribeToProcessCall)
-
-	p, ok := Get(subscribeCall.Pid)
-
+func SubscribeToProcessCallHF(body interface{}, channel op.Channel) error {
+	subscribeBody := body.(SubscribeToProcessCallBody)
+	p, ok := Get(subscribeBody.Pid)
 	if !ok {
-		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", subscribeCall.Pid))
+		return newNoSuchProcessError(subscribeBody.Pid)
 	}
 
 	subscriber := &Subscriber{
-		Mask:    parseTypes(subscribeCall.EventTypes),
+		Mask:    parseTypes(subscribeBody.EventTypes),
 		Channel: channel.EventsChannel,
 	}
 
 	// Check whether subscriber should see previous logs or not
-	if subscribeCall.After == "" {
+	if subscribeBody.After == "" {
 		return p.AddSubscriber(subscriber)
 	}
 
-	after, err := time.Parse(DATE_TIME_FORMAT, subscribeCall.After)
+	after, err := time.Parse(DateTimeFormat, subscribeBody.After)
 	if err != nil {
-		return errors.New("Bad format of 'after', " + err.Error())
+		return op.NewArgsError(errors.New("Bad format of 'after', " + err.Error()))
 	}
 	return p.RestoreSubscriber(subscriber, after)
-
 }
 
 func UnsubscribeFromProcessCallHF(call interface{}, channel op.Channel) error {
-	unsubscribeCall := call.(UnsubscribeFromProcessCall)
-	p, ok := Get(unsubscribeCall.Pid)
+	ubsubscribeBody := call.(UnsubscribeFromProcessCallBody)
+	p, ok := Get(ubsubscribeBody.Pid)
 	if !ok {
-		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", unsubscribeCall.Pid))
+		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", ubsubscribeBody.Pid))
 	}
 	p.RemoveSubscriber(channel.EventsChannel)
 	return nil
 }
 
-func UpdateProcessSubscriberCallHF(call interface{}, channel op.Channel) error {
-	updateCall := call.(UpdateProcessSubscriberCall)
-	p, ok := Get(updateCall.Pid)
+func UpdateProcessSubscriberCallHF(body interface{}, channel op.Channel) error {
+	updateBody := body.(UpdateProcessSubscriberCallBody)
+	p, ok := Get(updateBody.Pid)
 	if !ok {
-		return errors.New(fmt.Sprintf("No process with id '%d'", updateCall.Pid))
+		return newNoSuchProcessError(updateBody.Pid)
 	}
-	if updateCall.EventTypes == "" {
-		return errors.New("'eventTypes' required for subscriber update")
+	if updateBody.EventTypes == "" {
+		return op.NewArgsError(errors.New("'eventTypes' required for subscriber update"))
 	}
-	p.UpdateSubscriber(channel.EventsChannel, maskFromTypes(updateCall.EventTypes))
+	p.UpdateSubscriber(channel.EventsChannel, maskFromTypes(updateBody.EventTypes))
 	return nil
+}
+
+func newNoSuchProcessError(pid uint64) op.Error {
+	return op.NewError(errors.New(fmt.Sprintf("No process with id '%d'", pid)), NoSuchProcessErrorCode);
 }

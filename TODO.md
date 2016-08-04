@@ -1,9 +1,8 @@
 TODO
 
-- Versioning
 - Logs lifecycle
 - Logs paging(limits based)
-- Flags for configuration like(logs base folder, server host:port etc)
+- Flags for configuration like(server host:port etc)
 - Plug in terminal into the infrastructure
 - When to cleanup not-alive processes
 - Cleanup/Restore processes when machine restored from snapshot
