@@ -14,6 +14,8 @@ var alphabet = []byte("abcdefgh123456789")
 
 func TestFileLoggerCreatesFileWhenFileDoesNotExist(t *testing.T) {
 	filename := os.TempDir() + string(os.PathSeparator) + randomName(10)
+	defer os.Remove(filename)
+
 	if _, err := os.Stat(filename); err == nil {
 		t.Fatalf("File '%s' already exists", filename)
 	}
@@ -25,11 +27,12 @@ func TestFileLoggerCreatesFileWhenFileDoesNotExist(t *testing.T) {
 	if _, err := os.Stat(filename); os.IsNotExist(err) {
 		t.Fatalf("Expected file '%s' was created, but it wasn't", filename)
 	}
-	os.Remove(filename)
 }
 
 func TestFileLoggerTruncatesFileIfFileExistsOnCreate(t *testing.T) {
 	filename := os.TempDir() + string(os.PathSeparator) + randomName(10)
+	defer os.Remove(filename)
+
 	if _, err := os.Create(filename); err != nil {
 		t.Fatal(err)
 	}
@@ -48,11 +51,11 @@ func TestFileLoggerTruncatesFileIfFileExistsOnCreate(t *testing.T) {
 	if len(content) != 0 {
 		t.Errorf("Expected file '%s' content is empty", filename)
 	}
-	os.Remove(filename)
 }
 
 func TestLogsAreFlushedOnClose(t *testing.T) {
 	filename := os.TempDir() + string(os.PathSeparator) + randomName(10)
+	defer os.Remove(filename)
 
 	fl, err := process.NewLogger(filename)
 	if err != nil {
@@ -99,8 +102,6 @@ func TestLogsAreFlushedOnClose(t *testing.T) {
 	if stdout != expectedStdout {
 		t.Fatalf("Expected %v but found %v", expectedStderr, stderr)
 	}
-
-	os.Remove(filename)
 }
 
 func randomName(length int) string {

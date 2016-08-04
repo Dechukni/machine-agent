@@ -20,13 +20,13 @@ func NewLogsReader(filename string) *LogsReader {
 
 // Skip all the logs before the given time.
 // If the log message appeared at the given time, it won't be skipped.
-func (lr *LogsReader) From(time time.Time) (*LogsReader) {
+func (lr *LogsReader) From(time time.Time) *LogsReader {
 	lr.readFrom = &time
 	return lr
 }
 
 // Read logs which appeared before and right at a given time
-func (lr *LogsReader) Till(time time.Time) (*LogsReader) {
+func (lr *LogsReader) Till(time time.Time) *LogsReader {
 	lr.readTill = &time
 	return lr
 }

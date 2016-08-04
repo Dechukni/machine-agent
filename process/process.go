@@ -3,15 +3,14 @@ package process
 
 import (
 	"errors"
-	"flag"
 	"github.com/evoevodin/machine-agent/op"
 	"os"
 	"os/exec"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"syscall"
 	"time"
+	"fmt"
 )
 
 const (
@@ -27,9 +26,9 @@ const (
 )
 
 var (
-	logsDir   string
 	prevPid   uint64 = 0
 	processes        = &processesMap{items: make(map[uint64]*MachineProcess)}
+	logsDist         = NewLogsDistributor()
 )
 
 type Command struct {
@@ -107,12 +106,6 @@ type processesMap struct {
 	items map[uint64]*MachineProcess
 }
 
-func init() {
-	curDir, _ := os.Getwd()
-	curDir += string(os.PathSeparator) + "logs"
-	flag.StringVar(&logsDir, "logs-dir", curDir, "Directory for process logs")
-}
-
 func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, error) {
 	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
 	cmd := exec.Command("setsid", "sh", "-c", newCommand.CommandLine)
@@ -138,14 +131,13 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 	// increment current pid & assign it to the value
 	pid := atomic.AddUint64(&prevPid, 1)
 
-	if _, err := os.Stat(logsDir); os.IsNotExist(err) {
-		err = os.MkdirAll(logsDir, 0777)
-		if err != nil {
-			return nil, err
-		}
+	// Figure out the place for logs file
+	dir, err := logsDist.DirForPid(pid)
+	if err != nil {
+		return nil, err
 	}
+	filename := fmt.Sprintf("%s%cpid-%d", dir, os.PathSeparator, pid)
 
-	filename := logsDir + "/" + strconv.Itoa(int(pid))
 	fileLogger, err := NewLogger(filename)
 	if err != nil {
 		return nil, err

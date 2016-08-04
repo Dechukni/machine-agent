@@ -176,5 +176,5 @@ func UpdateProcessSubscriberCallHF(body interface{}, channel op.Channel) error {
 }
 
 func newNoSuchProcessError(pid uint64) op.Error {
-	return op.NewError(errors.New(fmt.Sprintf("No process with id '%d'", pid)), NoSuchProcessErrorCode);
+	return op.NewError(errors.New(fmt.Sprintf("No process with id '%d'", pid)), NoSuchProcessErrorCode)
 }
