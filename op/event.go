@@ -2,25 +2,34 @@ package op
 
 import "time"
 
+const (
+	ErrorEventType = "error"
+)
+
 // The base event for all the events published to the client
 type Event struct {
-	EventType string    `json:"type"`
-	Time      time.Time `json:"time"`
+	EventType string      `json:"type"`
+	Time      time.Time   `json:"time"`
+	Body      interface{} `json:"body"`
 }
 
-// The error events, if any error occurs during operation Call processing
-type ErrorEvent struct {
-	Event
-	Message string `json:"message"`
+// Creates a new error event from the Error
+func NewErrorEvent(err Error) *Event {
+	return NewEventNow(ErrorEventType, err)
 }
 
-// Creates a new error event from the event
-func NewErrorEvent(err error) ErrorEvent {
-	return ErrorEvent{
-		Event: Event{
-			EventType: "error",
-			Time:      time.Now(),
-		},
-		Message: err.Error(),
+func NewEventNow(eType string, Body interface{}) *Event {
+	return &Event{
+		EventType: eType,
+		Time:      time.Now(),
+		Body:      Body,
+	}
+}
+
+func NewEvent(eType string, Body interface{}, time time.Time) *Event {
+	return &Event{
+		EventType: eType,
+		Time:      time,
+		Body:      Body,
 	}
 }

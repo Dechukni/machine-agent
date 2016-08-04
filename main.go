@@ -1,13 +1,13 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/evoevodin/machine-agent/op"
 	"github.com/evoevodin/machine-agent/process"
+	"github.com/evoevodin/machine-agent/rest"
 	"log"
 	"net/http"
-	"github.com/evoevodin/machine-agent/rest"
-	"flag"
 )
 
 var (

@@ -36,5 +36,5 @@ func parseTime(timeStr string, defTime time.Time) (time.Time, error) {
 	if timeStr == "" {
 		return defTime, nil
 	}
-	return time.Parse(DATE_TIME_FORMAT, timeStr)
+	return time.Parse(DateTimeFormat, timeStr)
 }

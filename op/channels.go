@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	CONNECTED = "connected"
+	ConnectedEventType = "connected"
 )
 
 var (
@@ -16,8 +16,7 @@ var (
 
 // Published when websocket connection is established
 // and channel is ready for interaction
-type ChannelEvent struct {
-	Event
+type ChannelEventBody struct {
 	ChannelId string `json:"channel"`
 	Text      string `json:"text"`
 }

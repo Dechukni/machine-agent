@@ -14,10 +14,12 @@ Process API
 
 {
     "operation" : "process.start",
-    "name" : "build",
-    "commandLine" : "mvn clean install",
-    "type" : "maven",
-    "eventTypes" : "stderr,stdout"
+    "body" : {
+        "name" : "build",
+        "commandLine" : "mvn clean install",
+        "type" : "maven",
+        "eventTypes" : "stderr,stdout"
+    }
 }
 ```
 
@@ -28,7 +30,9 @@ Process API
 ```json
 {
     "operation" : "process.kill",
-    "pid" : 123
+    "body" : {
+        "pid" : 123
+    }
 }
 ```
 
@@ -43,9 +47,11 @@ be republished to the channel. This parameter may be useful when reconnecting to
 ```json
 {
     "operation" : "process.subscribe",
-    "pid" : 123,
-    "eventTypes" : "stdout,stderr",
-    "after" : "2016-07-26T09:36:44.920890113+03:00"
+    "body" : {
+        "pid" : 123,
+        "eventTypes" : "stdout,stderr",
+        "after" : "2016-07-26T09:36:44.920890113+03:00"
+    }
 }
 ```
 
@@ -56,7 +62,9 @@ be republished to the channel. This parameter may be useful when reconnecting to
 ```json
 {
     "operation" : "process.unsubscribe",
-    "pid" : 123
+    "body" : {
+        "pid" : 123
+    }
 }
 ```
 
@@ -69,7 +77,9 @@ received by this channel.
 ```json
 {
     "operation" : "process.updateSubscriber",
-    "pid" : 123,
-    "eventTypes": "process_status,stderr"
+    "body" : {
+        "pid" : 123,
+        "eventTypes": "process_status,stderr"
+    }
 }
 ```

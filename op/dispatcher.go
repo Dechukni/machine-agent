@@ -51,21 +51,14 @@ func registerChannel(w http.ResponseWriter, r *http.Request) error {
 	go listenForCalls(conn, channel)
 
 	// Say hello to the client
-	eventsChan <- &ChannelEvent{
-		Event{
-			CONNECTED,
-			connectedTime,
-		},
-		chanId,
-		"Hello!",
-	}
+	eventsChan <- NewEvent(ConnectedEventType, &ChannelEventBody{chanId, "Hello!"}, connectedTime)
 	return nil
 }
 
 func listenForCalls(conn *websocket.Conn, channel Channel) {
 	for {
-		// Reading the message from the client
-		_, body, err := conn.ReadMessage()
+		// Read a message from the client
+		_, message, err := conn.ReadMessage()
 		if err != nil {
 			if !websocket.IsCloseError(err, 1005) {
 				log.Println("Error reading message, " + err.Error())
@@ -81,11 +74,12 @@ func listenForCalls(conn *websocket.Conn, channel Channel) {
 			break
 		}
 
+		// Decode the message and dispatch it to an appropriate route handler
 		call := &Call{}
-		if err := json.Unmarshal(body, call); err != nil {
-			channel.EventsChannel <- NewErrorEvent(err)
+		if err := json.Unmarshal(message, &call); err != nil {
+			channel.EventsChannel <- NewErrorEvent(NewError(err, InvalidOperationCallJsonErrorCode))
 		} else {
-			dispatchCall(call.Operation, body, channel)
+			dispatchCall(call.Operation, call.RawBody, channel)
 		}
 	}
 }
@@ -97,6 +91,7 @@ func listenForEvents(conn *websocket.Conn, channel Channel) {
 			// channel is closed, should happen only if websocket connection is closed
 			break
 		}
+		// TODO add Event.Key handling right here
 		err := conn.WriteJSON(event)
 		if err != nil {
 			log.Printf("Couldn't write event to the channel. Event: %T, %v", event, event)
@@ -109,7 +104,7 @@ func dispatchCall(operation string, body []byte, channel Channel) {
 	opRoute, ok := routes.get(operation)
 	if !ok {
 		m := fmt.Sprintf("No route for the operation '%s'", operation)
-		channel.EventsChannel <- NewErrorEvent(errors.New(m))
+		channel.EventsChannel <- NewErrorEvent(NewError(errors.New(m), NoSuchRouteErrorCode))
 		return
 	}
 
@@ -117,10 +112,15 @@ func dispatchCall(operation string, body []byte, channel Channel) {
 	call, err := opRoute.DecoderFunc(body)
 	if err != nil {
 		m := fmt.Sprintf("Error decoding Call for the operation '%s'. Error: '%s'\n", operation, err.Error())
-		channel.EventsChannel <- NewErrorEvent(errors.New(m))
+		channel.EventsChannel <- NewErrorEvent(NewError(errors.New(m), InvalidOperationBodyJsonErrorCode))
 		return
 	}
 	if err := opRoute.HandlerFunc(call, channel); err != nil {
-		channel.EventsChannel <- NewErrorEvent(err)
+		opError, ok := err.(Error)
+		if ok {
+			channel.EventsChannel <- NewErrorEvent(opError)
+		} else {
+			channel.EventsChannel <- NewErrorEvent(NewError(err, InternalErrorCode))
+		}
 	}
 }

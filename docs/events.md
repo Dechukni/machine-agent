@@ -12,10 +12,12 @@ One stderr event describes one output line
 
 ```json
 {
-    "type" : "stderr",
-    "pid" : 123,
-    "text" : "Absolute path to 'ifconfig' is '/sbin/ifconfig'",
-    "time" : "2016-06-15T20:29:44.437650129+03:00"
+    "type":"stderr",
+    "time":"2016-08-04T03:07:27.079183894+03:00",
+    "body":{
+        "pid":3,
+        "text":"sh: ifconfig: command not found\n"
+    }
 }
 ```
 
@@ -26,10 +28,12 @@ One stdout event describes one output line
 
 ```json
 {
-    "type" : "stdout",
-    "pid" : 123,
-    "text" : "Starting server...",
-    "time" : "2016-06-15T20:29:44.437650129+03:00"
+    "type":"stdout",
+    "time":"2016-08-04T03:08:48.126499411+03:00",
+    "body":{
+        "pid":4,
+        "text":"Starting server..."
+    }
 }
 ```
 
@@ -41,12 +45,14 @@ it appears only once for one process
 
 ```json
 {
-    "type" : "process_started",
-    "pid" : 123,
-    "nativePid" : 22344,
-    "name" : "build",
-    "commandLine" : "mvn clean install",
-    "time" : "2016-06-15T20:29:44.437650129+03:00"
+    "type":"process_started",
+    "time":"2016-08-04T03:08:48.124621585+03:00",
+    "body":{
+        "pid":4,
+        "nativePid":21240,
+        "name":"build",
+        "commandLine":"mvn clean install"
+    }
 }
 ```
 
@@ -57,12 +63,14 @@ it appears only once for one process
 
 ```json
 {
-    "type" : "process_died",
-    "pid" : 123,
-    "nativePid" : 22344,
-    "name" : "build",
-    "commandLine" : "mvn clean install",
-    "time" : "2016-06-15T20:29:44.437650129+03:00"
+    "type":"process_died",
+    "time":"2016-08-04T03:08:48.126720857+03:00",
+    "body":{
+        "pid":4,
+        "nativePid":21240,
+        "name":"build",
+        "commandLine":"mvn clean install"
+    }
 }
 ```
 
@@ -75,23 +83,35 @@ The first event in the channel, published when client successfully connected to 
 
 ```json
 {
-    "type" : "connected",
-    "channel" : "channel-123",
-    "text" : "Hello!",
-    "time" : "2016-06-15T20:29:44.437650129+03:00"
+    "type":"connected",
+    "time":"2016-08-04T02:59:46.224903844+03:00",
+    "body":{
+        "channel":"channel-1",
+        "text":"Hello!"
+    }
 }
 ```
 
 
-Error event
+Error events
 ---
 
-Published when any error occurred during Call processing
+May be published during the operation processing or call handling.
+All the error events have the following structure:
 
 ```json
 {
-    "type" : "error",
-    "time" : "2016-06-15T20:29:44.437650129+03:00"
-    "message" : "No process with id '123''",
+    "type":"error",
+    "time":"2016-08-04T03:02:50.725577546+03:00",
+    "body":{
+        "code":10000,
+        "message":"Short description of the error"
+    }
 }
+
 ```
+
+- *type* - is always _error_
+- *time* - when error occurred
+- *code* - the code of the error, there is a list of standard error codes i'll add it later :)
+- *message* - short description of the reason why that error appeared

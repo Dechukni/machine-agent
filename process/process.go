@@ -15,15 +15,15 @@ import (
 )
 
 const (
-	STDOUT_BIT         = 1 << iota
-	STDERR_BIT         = 1 << iota
-	PROCESS_STATUS_BIT = 1 << iota
-	DEFAULT_MASK       = STDERR_BIT | STDOUT_BIT | PROCESS_STATUS_BIT
+	StdoutBit        = 1 << iota
+	StderrBit        = 1 << iota
+	ProcessStatusBit = 1 << iota
+	DefaultMask      = StderrBit | StdoutBit | ProcessStatusBit
 
-	DATE_TIME_FORMAT = time.RFC3339Nano
+	DateTimeFormat = time.RFC3339Nano
 
-	STDOUT_KIND = "STDOUT"
-	STDERR_KIND = "STDERR"
+	StdoutKind = "STDOUT"
+	StderrKind = "STDERR"
 )
 
 var (
@@ -177,18 +177,13 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 	process.pumper.AddConsumer(process)
 
 	// before pumping is started publish process_started event
-	process.publish(&ProcessStatusEvent{
-		ProcessEvent{
-			op.Event{
-				PROCESS_STARTED,
-				time.Now(),
-			},
-			process.Pid,
-		},
-		process.NativePid,
-		process.Name,
-		process.CommandLine,
-	}, PROCESS_STATUS_BIT)
+	body := &ProcessStatusEventBody{
+		ProcessEventBody: ProcessEventBody{Pid: process.Pid},
+		NativePid:        process.NativePid,
+		Name:             process.Name,
+		CommandLine:      process.CommandLine,
+	}
+	process.publish(op.NewEventNow(ProcessStartedEventType, body), ProcessStatusBit)
 
 	// start pumping 'pumper.Pump' is blocking
 	go func() {
@@ -305,26 +300,21 @@ func (mp *MachineProcess) UpdateSubscriber(subChannel chan interface{}, newMask 
 }
 
 func (process *MachineProcess) OnStdout(line string, time time.Time) {
-	process.publish(newOutputEvent(process.Pid, STDOUT, line, time), STDOUT_BIT)
+	process.publish(newOutputEvent(process.Pid, StdoutEventType, line, time), StdoutBit)
 }
 
 func (process *MachineProcess) OnStderr(line string, time time.Time) {
-	process.publish(newOutputEvent(process.Pid, STDERR, line, time), STDERR_BIT)
+	process.publish(newOutputEvent(process.Pid, StderrEventType, line, time), StderrBit)
 }
 
 func (process *MachineProcess) Close() {
-	process.publish(&ProcessStatusEvent{
-		ProcessEvent{
-			op.Event{
-				PROCESS_DIED,
-				time.Now(),
-			},
-			process.Pid,
-		},
-		process.NativePid,
-		process.Name,
-		process.CommandLine,
-	}, PROCESS_STATUS_BIT)
+	body := &ProcessStatusEventBody{
+		ProcessEventBody: ProcessEventBody{Pid: process.Pid},
+		NativePid:        process.NativePid,
+		Name:             process.Name,
+		CommandLine:      process.CommandLine,
+	}
+	process.publish(op.NewEventNow(ProcessDiedEventType, body), ProcessStatusBit)
 }
 
 func setDead(pid uint64) {
@@ -362,15 +352,10 @@ func tryWrite(eventsChan chan interface{}, event interface{}) (ok bool) {
 	return true
 }
 
-func newOutputEvent(pid uint64, kind string, line string, time time.Time) *ProcessOutputEvent {
-	return &ProcessOutputEvent{
-		ProcessEvent{
-			op.Event{
-				kind,
-				time,
-			},
-			pid,
-		},
-		line,
+func newOutputEvent(pid uint64, kind string, line string, time time.Time) *op.Event {
+	body := &ProcessOutputEventBody{
+		ProcessEventBody: ProcessEventBody{Pid: pid},
+		Text:             line,
 	}
+	return op.NewEvent(kind, body, time)
 }

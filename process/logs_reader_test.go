@@ -36,9 +36,9 @@ func TestReadLogs(t *testing.T) {
 
 	// Check everything is okay
 	expected := []process.LogMessage{
-		{Kind: process.STDOUT_KIND, Time: now.Add(time.Second * 2), Text: "line2"},
-		{Kind: process.STDOUT_KIND, Time: now.Add(time.Second * 3), Text: "line3"},
-		{Kind: process.STDERR_KIND, Time: now.Add(time.Second * 4), Text: "line4"},
+		{Kind: process.StdoutKind, Time: now.Add(time.Second * 2), Text: "line2"},
+		{Kind: process.StdoutKind, Time: now.Add(time.Second * 3), Text: "line3"},
+		{Kind: process.StderrKind, Time: now.Add(time.Second * 4), Text: "line4"},
 	}
 	for i := 0; i < len(logs); i++ {
 		if *logs[i] != expected[i] {

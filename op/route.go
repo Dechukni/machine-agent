@@ -1,6 +1,7 @@
 package op
 
 import (
+	"encoding/json"
 	"log"
 	"sync"
 )
@@ -13,12 +14,23 @@ var (
 // Describes named operation which is called
 // on the websocket client's side and usually
 // performed on the machine-agent side, if appropriate Route exists.
-// All the structures representing Call objects must include this structure as well.
 type Call struct {
 
 	// The operation which is represented by this Call
 	// usually dot separated resource and action
 	Operation string `json:"operation"`
+
+	// The unique operation key, if client needs to identify
+	// response on the request, client may pass the key, it is guaranteed
+	// that client will receive the event with the same key.
+	// The key is one per one operation. The most common use-case is error handling
+	// by client, when client performs an operation and the operation data may be
+	// invalid server identifier this error with the key, passed by client, in this way
+	// it is possible for client to recognize the error.
+	Key string `json:"key"`
+
+	// The call body, may be anything, will be decoded by an appropriate DecoderFunc.
+	RawBody json.RawMessage `json:"body"`
 }
 
 // Describes route for api calls
@@ -28,12 +40,12 @@ type Route struct {
 	Operation string
 
 	// The decoder used for decoding a given object
-	// into the special Call, described by this operation route.
-	// The decoded value will be used by the HandlerFunc from this
-	// operation route, so it is up to the actual route - to define type safe
+	// into the certain body, by the call of this operation route.
+	// The decoded value will be passed to the HandlerFunc,
+	// so it is up to the route - to define type safe
 	// couple of DecoderFunc & HandlerFunc.
-	// The source is a message read from a webscoket channel.
-	DecoderFunc func(source []byte) (interface{}, error)
+	// The source is Call.Body.
+	DecoderFunc func(body []byte) (interface{}, error)
 
 	// Defines handler for the decoded operation Call.
 	// If handler function can't perform the operation then appropriate error
@@ -41,7 +53,7 @@ type Route struct {
 	// The call is a value returned from the DecoderFunc.
 	// If an error is returned from the function then it will be
 	// published to the channel as an error event.
-	HandlerFunc func(call interface{}, channel Channel) error
+	HandlerFunc func(body interface{}, channel Channel) error
 }
 
 // Named group of operation routes, those groups
