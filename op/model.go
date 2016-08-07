@@ -25,7 +25,7 @@ type Call struct {
 	// It is preferable to specify identifier for those calls which may
 	// either validate data, or produce such information which can't be
 	// identified by itself.
-	Id string `json:"id"`
+	Id interface{} `json:"id"`
 
 	// Call related data, parameters which are needed for operation execution.
 	RawBody json.RawMessage `json:"body"`
@@ -57,7 +57,7 @@ type Result struct {
 
 	// The operation call identifier, will be set only
 	// if the operation contains it. See 'op.Call.Id'
-	Id string `json:"id"`
+	Id interface{} `json:"id"`
 
 	// The actual result data, the operation execution result.
 	Body interface{} `json:"body"`

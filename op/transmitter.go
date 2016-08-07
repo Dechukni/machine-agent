@@ -15,7 +15,7 @@ type Transmitter interface {
 }
 
 type defaultTransmitter struct {
-	id      string
+	id      interface{}
 	channel Channel
 }
 
