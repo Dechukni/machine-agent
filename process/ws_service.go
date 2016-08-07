@@ -96,7 +96,7 @@ type UpdateProcessSubscriberCallBody struct {
 	EventTypes string `json:"eventTypes"`
 }
 
-func StartProcessCallHF(body interface{}, channel op.Channel) error {
+func StartProcessCallHF(body interface{}, t op.Transmitter) error {
 	startCall := body.(StartProcessCallBody)
 
 	// Creating command
@@ -112,14 +112,14 @@ func StartProcessCallHF(body interface{}, channel op.Channel) error {
 	// Detecting subscription mask
 	subscriber := &Subscriber{
 		Mask:    parseTypes(startCall.EventTypes),
-		Channel: channel.EventsChannel,
+		Channel: t.Channel().Events,
 	}
 
 	_, err := Start(command, subscriber)
 	return err
 }
 
-func KillProcessCallHF(body interface{}, channel op.Channel) error {
+func KillProcessCallHF(body interface{}, t op.Transmitter) error {
 	killBody := body.(KillProcessCallBody)
 	p, ok := Get(killBody.Pid)
 	if !ok {
@@ -128,7 +128,7 @@ func KillProcessCallHF(body interface{}, channel op.Channel) error {
 	return p.Kill()
 }
 
-func SubscribeToProcessCallHF(body interface{}, channel op.Channel) error {
+func SubscribeToProcessCallHF(body interface{}, t op.Transmitter) error {
 	subscribeBody := body.(SubscribeToProcessCallBody)
 	p, ok := Get(subscribeBody.Pid)
 	if !ok {
@@ -137,7 +137,7 @@ func SubscribeToProcessCallHF(body interface{}, channel op.Channel) error {
 
 	subscriber := &Subscriber{
 		Mask:    parseTypes(subscribeBody.EventTypes),
-		Channel: channel.EventsChannel,
+		Channel: t.Channel().Events,
 	}
 
 	// Check whether subscriber should see previous logs or not
@@ -152,17 +152,19 @@ func SubscribeToProcessCallHF(body interface{}, channel op.Channel) error {
 	return p.RestoreSubscriber(subscriber, after)
 }
 
-func UnsubscribeFromProcessCallHF(call interface{}, channel op.Channel) error {
+func UnsubscribeFromProcessCallHF(call interface{}, t op.Transmitter) error {
 	ubsubscribeBody := call.(UnsubscribeFromProcessCallBody)
 	p, ok := Get(ubsubscribeBody.Pid)
 	if !ok {
 		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", ubsubscribeBody.Pid))
 	}
-	p.RemoveSubscriber(channel.EventsChannel)
+
+	// TODO, fix it after transmitter refactoring is done
+	p.RemoveSubscriber(t.Channel().Events)
 	return nil
 }
 
-func UpdateProcessSubscriberCallHF(body interface{}, channel op.Channel) error {
+func UpdateProcessSubscriberCallHF(body interface{}, t op.Transmitter) error {
 	updateBody := body.(UpdateProcessSubscriberCallBody)
 	p, ok := Get(updateBody.Pid)
 	if !ok {
@@ -171,7 +173,8 @@ func UpdateProcessSubscriberCallHF(body interface{}, channel op.Channel) error {
 	if updateBody.EventTypes == "" {
 		return op.NewArgsError(errors.New("'eventTypes' required for subscriber update"))
 	}
-	p.UpdateSubscriber(channel.EventsChannel, maskFromTypes(updateBody.EventTypes))
+
+	p.UpdateSubscriber(t.Channel().Events, maskFromTypes(updateBody.EventTypes))
 	return nil
 }
 

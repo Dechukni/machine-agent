@@ -85,7 +85,7 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) error {
 			m := fmt.Sprintf("Channel with id '%s' doesn't exist. Process won't be started", channelId)
 			return rest.NotFound(errors.New(m))
 		}
-		subscriber = &Subscriber{parseTypes(r.URL.Query().Get("types")), channel.EventsChannel}
+		subscriber = &Subscriber{parseTypes(r.URL.Query().Get("types")), channel.Events}
 	}
 
 	process, err := Start(&command, subscriber)
@@ -196,7 +196,7 @@ func UnsubscribeHF(w http.ResponseWriter, r *http.Request) error {
 		return rest.NotFound(errors.New(fmt.Sprintf("Channel with id '%s' doesn't exist", channelId)))
 	}
 
-	p.RemoveSubscriber(channel.EventsChannel)
+	p.RemoveSubscriber(channel.Events)
 	return nil
 }
 
@@ -221,7 +221,7 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) error {
 		return rest.NotFound(errors.New(fmt.Sprintf("Channel with id '%s' doesn't exist", channelId)))
 	}
 
-	subscriber := &Subscriber{parseTypes(r.URL.Query().Get("types")), channel.EventsChannel}
+	subscriber := &Subscriber{Mask: parseTypes(r.URL.Query().Get("types")), Channel: channel.Events}
 
 	// Check whether subscriber should see previous process logs
 	afterStr := r.URL.Query().Get("after")
@@ -263,7 +263,7 @@ func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) error {
 		return rest.BadRequest(errors.New("'types' parameter required"))
 	}
 
-	p.UpdateSubscriber(channel.EventsChannel, maskFromTypes(types))
+	p.UpdateSubscriber(channel.Events, maskFromTypes(types))
 	return nil
 }
 

@@ -1,21 +1,18 @@
 package op
 
 const (
-	// When parsing of operation Call failed
-	InvalidOperationCallJsonErrorCode = 10000
-
-	// When parsing of operation Call body failed
-	InvalidOperationBodyJsonErrorCode = 10001
+	// When decoding of operation Call body failed
+	InvalidOperationBodyJsonErrorCode = 10000
 
 	// When route for such operation doesn't exist
-	NoSuchRouteErrorCode = 10002
+	NoSuchRouteErrorCode = 10001
 
 	// When handler parameters are considered as not valid
 	// this error type should be returned directly from the HandlerFunc
-	InvalidParametersErrorCode = 10003
+	InvalidParametersErrorCode = 10002
 
 	// When error returned from the Route HandlerFunc is different from Error type
-	InternalErrorCode = 10004
+	InternalErrorCode = 10003
 )
 
 // May be returned by any of route HandlerFunc.

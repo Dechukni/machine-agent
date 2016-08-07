@@ -36,22 +36,25 @@ func registerChannel(w http.ResponseWriter, r *http.Request) error {
 	// for future interactions with the API
 	chanId := "channel-" + strconv.Itoa(int(atomic.AddUint64(&prevChanId, 1)))
 	connectedTime := time.Now()
+	outputChan := make(chan interface{})
 	eventsChan := make(chan interface{})
 	channel := Channel{
-		Id:            chanId,
-		Connected:     connectedTime,
-		EventsChannel: eventsChan,
-		conn:          conn,
+		Id:        chanId,
+		Connected: connectedTime,
+		Events:    eventsChan,
+		output:    outputChan,
+		conn:      conn,
 	}
 	saveChannel(channel)
 
-	// Listen for the events from the machine-agent side
+	// Listen for the events from the server's side
 	// and API calls from the channel client side
-	go listenForEvents(conn, channel)
+	go listenForOutputs(conn, channel)
+	go redirectEventsToOutput(channel)
 	go listenForCalls(conn, channel)
 
 	// Say hello to the client
-	eventsChan <- NewEvent(ConnectedEventType, &ChannelEventBody{chanId, "Hello!"}, connectedTime)
+	eventsChan <- NewEvent(ConnectedEventType, &ChannelConnected{ChannelId: chanId, Text: "Hello!"}, connectedTime)
 	return nil
 }
 
@@ -65,7 +68,8 @@ func listenForCalls(conn *websocket.Conn, channel Channel) {
 			}
 
 			// Cleanup channel resources
-			close(channel.EventsChannel)
+			close(channel.Events)
+			close(channel.output)
 			err = channel.conn.Close()
 			if err != nil {
 				log.Println("Error closing connection, " + err.Error())
@@ -77,50 +81,51 @@ func listenForCalls(conn *websocket.Conn, channel Channel) {
 		// Decode the message and dispatch it to an appropriate route handler
 		call := &Call{}
 		if err := json.Unmarshal(message, &call); err != nil {
-			channel.EventsChannel <- NewErrorEvent(NewError(err, InvalidOperationCallJsonErrorCode))
+			log.Printf("Error decoding operation call '%s', Error: %s \n", string(message), err.Error())
 		} else {
-			dispatchCall(call.Operation, call.RawBody, channel)
+			dispatchCall(call, channel)
 		}
 	}
 }
 
-func listenForEvents(conn *websocket.Conn, channel Channel) {
-	for {
-		event, ok := <-channel.EventsChannel
-		if !ok {
-			// channel is closed, should happen only if websocket connection is closed
-			break
-		}
-		// TODO add Event.Key handling right here
-		err := conn.WriteJSON(event)
+func redirectEventsToOutput(channel Channel) {
+	for event := range channel.Events {
+		channel.output <- event
+	}
+}
+
+func listenForOutputs(conn *websocket.Conn, channel Channel) {
+	for message := range channel.output {
+		err := conn.WriteJSON(message)
 		if err != nil {
-			log.Printf("Couldn't write event to the channel. Event: %T, %v", event, event)
+			log.Printf("Couldn't write message to the channel. Message: %T, %v", message, message)
 		}
 	}
 }
 
-func dispatchCall(operation string, body []byte, channel Channel) {
-	// Get the requested route
-	opRoute, ok := routes.get(operation)
+func dispatchCall(call *Call, channel Channel) {
+	transmitter := &defaultTransmitter{channel: channel, id: call.Id}
+
+	opRoute, ok := routes.get(call.Operation)
 	if !ok {
-		m := fmt.Sprintf("No route for the operation '%s'", operation)
-		channel.EventsChannel <- NewErrorEvent(NewError(errors.New(m), NoSuchRouteErrorCode))
+		m := fmt.Sprintf("No route for the operation '%s'", call.Operation)
+		transmitter.SendError(NewError(errors.New(m), NoSuchRouteErrorCode))
 		return
 	}
 
-	// Dispatch call
-	call, err := opRoute.DecoderFunc(body)
+	decodedBody, err := opRoute.DecoderFunc(call.RawBody)
 	if err != nil {
-		m := fmt.Sprintf("Error decoding Call for the operation '%s'. Error: '%s'\n", operation, err.Error())
-		channel.EventsChannel <- NewErrorEvent(NewError(errors.New(m), InvalidOperationBodyJsonErrorCode))
+		m := fmt.Sprintf("Error decoding body for the operation '%s'. Error: '%s'", call.Operation, err.Error())
+		transmitter.SendError(NewError(errors.New(m), InvalidOperationBodyJsonErrorCode))
 		return
 	}
-	if err := opRoute.HandlerFunc(call, channel); err != nil {
+
+	if err := opRoute.HandlerFunc(decodedBody, transmitter); err != nil {
 		opError, ok := err.(Error)
 		if ok {
-			channel.EventsChannel <- NewErrorEvent(opError)
+			transmitter.SendError(opError)
 		} else {
-			channel.EventsChannel <- NewErrorEvent(NewError(err, InternalErrorCode))
+			transmitter.SendError(NewError(err, InternalErrorCode))
 		}
 	}
 }

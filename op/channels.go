@@ -16,7 +16,7 @@ var (
 
 // Published when websocket connection is established
 // and channel is ready for interaction
-type ChannelEventBody struct {
+type ChannelConnected struct {
 	ChannelId string `json:"channel"`
 	Text      string `json:"text"`
 }
@@ -33,8 +33,13 @@ type Channel struct {
 
 	// Go channel for sending events to the websocket.
 	// All the events are encoded to the json messages and
-	// send to websocket connection defined by this channel
-	EventsChannel chan interface{}
+	// send to websocket connection defined by this channel.
+	// TODO: change the type from interface{} to Event
+	Events chan interface{}
+
+	// Everything passed to this channel will be encoded
+	// to json and send to the client.
+	output chan interface{}
 
 	// Websocket connection
 	conn *websocket.Conn
