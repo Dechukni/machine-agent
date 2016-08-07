@@ -2,7 +2,6 @@ package rest
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
 	"strings"
 )
@@ -10,10 +9,6 @@ import (
 const (
 	maxNameLen   = 40
 	maxMethodLen = len("DELETE")
-)
-
-var (
-	Router = mux.NewRouter().StrictSlash(true)
 )
 
 // Handler for http routes
@@ -56,28 +51,22 @@ func (r *Route) String() string {
 	return fmt.Sprintf("%s %s %s", name, method, r.Path)
 }
 
-// Registers new http route, if route with such name exists
-// then this route overrides existing one
-func RegisterRoute(route Route) {
-	Router.
-		Methods(route.Method).
-		Path(route.Path).
-		Name(route.Name).
-		HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Delegate call to the defined handler func
-			err := route.HandleFunc(w, r)
-			// Consider all the errors different from ApiError as server error
-			if err != nil {
+func ToHttpHandlerFunc(routeHF HttpRouteHandlerFunc) func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Delegate call to the defined handler func
+		err := routeHF(w, r)
+		// Consider all the errors different from ApiError as server error
+		if err != nil {
 
-				// Figure out whether error is api error
-				apiErr, ok := err.(ApiError)
-				if !ok {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-
-				// If it is then respond with an appropriate error code
-				http.Error(w, apiErr.Error(), apiErr.Code)
+			// Figure out whether error is api error
+			apiErr, ok := err.(ApiError)
+			if !ok {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
 			}
-		})
+
+			// If it is then respond with an appropriate error code
+			http.Error(w, apiErr.Error(), apiErr.Code)
+		}
+	}
 }
