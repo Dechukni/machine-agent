@@ -3,6 +3,7 @@ package process
 
 import (
 	"errors"
+	"fmt"
 	"github.com/evoevodin/machine-agent/op"
 	"os"
 	"os/exec"
@@ -10,7 +11,6 @@ import (
 	"sync/atomic"
 	"syscall"
 	"time"
-	"fmt"
 )
 
 const (
@@ -84,8 +84,9 @@ type MachineProcess struct {
 }
 
 type Subscriber struct {
+	Id      string
 	Mask    uint64
-	Channel chan interface{}
+	Channel chan *op.Event
 }
 
 type LogMessage struct {
@@ -220,11 +221,11 @@ func (mp *MachineProcess) ReadLogs(from time.Time, till time.Time) ([]*LogMessag
 	return NewLogsReader(mp.logfileName).From(from).Till(till).ReadLogs()
 }
 
-func (mp *MachineProcess) RemoveSubscriber(subChannel chan interface{}) {
+func (mp *MachineProcess) RemoveSubscriber(id string) {
 	mp.subs.Lock()
 	defer mp.subs.Unlock()
 	for idx, sub := range mp.subs.items {
-		if sub.Channel == subChannel {
+		if sub.Id == id {
 			mp.subs.items = append(mp.subs.items[0:idx], mp.subs.items[idx+1:]...)
 			break
 		}
@@ -280,11 +281,11 @@ func (mp *MachineProcess) RestoreSubscriber(subscriber *Subscriber, after time.T
 	return nil
 }
 
-func (mp *MachineProcess) UpdateSubscriber(subChannel chan interface{}, newMask uint64) {
+func (mp *MachineProcess) UpdateSubscriber(id string, newMask uint64) {
 	mp.subs.Lock()
 	defer mp.subs.Unlock()
 	for _, sub := range mp.subs.items {
-		if sub.Channel == subChannel {
+		if sub.Id == id {
 			sub.Mask = newMask
 			break
 		}
@@ -318,7 +319,7 @@ func setDead(pid uint64) {
 	}
 }
 
-func (mp *MachineProcess) publish(event interface{}, typeBit uint64) {
+func (mp *MachineProcess) publish(event *op.Event, typeBit uint64) {
 	mp.subs.RLock()
 	subs := mp.subs.items
 	for _, subscriber := range subs {
@@ -326,7 +327,7 @@ func (mp *MachineProcess) publish(event interface{}, typeBit uint64) {
 		if subscriber.Mask&typeBit == typeBit && !tryWrite(subscriber.Channel, event) {
 			// Impossible to write to the channel, remove the channel from the subscribers list.
 			// It may happen when writing to the closed channel
-			defer mp.RemoveSubscriber(subscriber.Channel)
+			defer mp.RemoveSubscriber(subscriber.Id)
 		}
 	}
 	mp.subs.RUnlock()
@@ -334,7 +335,7 @@ func (mp *MachineProcess) publish(event interface{}, typeBit uint64) {
 
 // Writes to a channel and returns true if write is successful,
 // otherwise if write to the channel failed e.g. channel is closed then returns false
-func tryWrite(eventsChan chan interface{}, event interface{}) (ok bool) {
+func tryWrite(eventsChan chan *op.Event, event *op.Event) (ok bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			ok = false

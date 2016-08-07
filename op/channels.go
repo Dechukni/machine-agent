@@ -34,8 +34,7 @@ type Channel struct {
 	// Go channel for sending events to the websocket.
 	// All the events are encoded to the json messages and
 	// send to websocket connection defined by this channel.
-	// TODO: change the type from interface{} to Event
-	Events chan interface{}
+	Events chan *Event
 
 	// Everything passed to this channel will be encoded
 	// to json and send to the client.

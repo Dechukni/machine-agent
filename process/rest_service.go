@@ -85,7 +85,11 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) error {
 			m := fmt.Sprintf("Channel with id '%s' doesn't exist. Process won't be started", channelId)
 			return rest.NotFound(errors.New(m))
 		}
-		subscriber = &Subscriber{parseTypes(r.URL.Query().Get("types")), channel.Events}
+		subscriber = &Subscriber{
+			Id : channelId,
+			Mask: parseTypes(r.URL.Query().Get("types")),
+			Channel : channel.Events,
+		}
 	}
 
 	process, err := Start(&command, subscriber)
@@ -196,7 +200,7 @@ func UnsubscribeHF(w http.ResponseWriter, r *http.Request) error {
 		return rest.NotFound(errors.New(fmt.Sprintf("Channel with id '%s' doesn't exist", channelId)))
 	}
 
-	p.RemoveSubscriber(channel.Events)
+	p.RemoveSubscriber(channel.Id)
 	return nil
 }
 
@@ -262,8 +266,7 @@ func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) error {
 	if types == "" {
 		return rest.BadRequest(errors.New("'types' parameter required"))
 	}
-
-	p.UpdateSubscriber(channel.Events, maskFromTypes(types))
+	p.UpdateSubscriber(channel.Id, maskFromTypes(types))
 	return nil
 }
 

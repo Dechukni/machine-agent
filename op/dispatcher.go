@@ -37,7 +37,7 @@ func registerChannel(w http.ResponseWriter, r *http.Request) error {
 	chanId := "channel-" + strconv.Itoa(int(atomic.AddUint64(&prevChanId, 1)))
 	connectedTime := time.Now()
 	outputChan := make(chan interface{})
-	eventsChan := make(chan interface{})
+	eventsChan := make(chan *Event)
 	channel := Channel{
 		Id:        chanId,
 		Connected: connectedTime,

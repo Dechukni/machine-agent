@@ -111,6 +111,7 @@ func StartProcessCallHF(body interface{}, t op.Transmitter) error {
 
 	// Detecting subscription mask
 	subscriber := &Subscriber{
+		Id:      t.Channel().Id,
 		Mask:    parseTypes(startCall.EventTypes),
 		Channel: t.Channel().Events,
 	}
@@ -136,6 +137,7 @@ func SubscribeToProcessCallHF(body interface{}, t op.Transmitter) error {
 	}
 
 	subscriber := &Subscriber{
+		Id:      t.Channel().Id,
 		Mask:    parseTypes(subscribeBody.EventTypes),
 		Channel: t.Channel().Events,
 	}
@@ -159,8 +161,7 @@ func UnsubscribeFromProcessCallHF(call interface{}, t op.Transmitter) error {
 		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", ubsubscribeBody.Pid))
 	}
 
-	// TODO, fix it after transmitter refactoring is done
-	p.RemoveSubscriber(t.Channel().Events)
+	p.RemoveSubscriber(t.Channel().Id)
 	return nil
 }
 
@@ -174,7 +175,7 @@ func UpdateProcessSubscriberCallHF(body interface{}, t op.Transmitter) error {
 		return op.NewArgsError(errors.New("'eventTypes' required for subscriber update"))
 	}
 
-	p.UpdateSubscriber(t.Channel().Events, maskFromTypes(updateBody.EventTypes))
+	p.UpdateSubscriber(t.Channel().Id, maskFromTypes(updateBody.EventTypes))
 	return nil
 }
 
