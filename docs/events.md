@@ -91,27 +91,3 @@ The first event in the channel, published when client successfully connected to 
     }
 }
 ```
-
-
-Error events
----
-
-May be published during the operation processing or call handling.
-All the error events have the following structure:
-
-```json
-{
-    "type":"error",
-    "time":"2016-08-04T03:02:50.725577546+03:00",
-    "body":{
-        "code":10000,
-        "message":"Short description of the error"
-    }
-}
-
-```
-
-- *type* - is always _error_
-- *time* - when error occurred
-- *code* - the code of the error, there is a list of standard error codes i'll add it later :)
-- *message* - short description of the reason why that error appeared

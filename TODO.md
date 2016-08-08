@@ -2,3 +2,5 @@
 - Cleanup processes/logs when they are not used for some period of time
 - Cleanup/Restore processes when machine restored from snapshot
 - Cleanup process resources after it is dead
+- Separate process start on 2 methods Create&Start which will allow to
+- Identify the process with generated pid before it is started
