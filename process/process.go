@@ -3,6 +3,7 @@ package process
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"github.com/evoevodin/machine-agent/op"
 	"os"
@@ -29,6 +30,7 @@ var (
 	prevPid   uint64 = 0
 	processes        = &processesMap{items: make(map[uint64]*MachineProcess)}
 	logsDist         = NewLogsDistributor()
+	logsDir   string
 )
 
 type Command struct {
@@ -107,6 +109,12 @@ type processesMap struct {
 	items map[uint64]*MachineProcess
 }
 
+func init() {
+	curDir, _ := os.Getwd()
+	curDir += string(os.PathSeparator) + "logs"
+	flag.StringVar(&logsDir, "logs-dir", curDir, "Base directory for process logs")
+}
+
 func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, error) {
 	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
 	cmd := exec.Command("setsid", "sh", "-c", newCommand.CommandLine)
@@ -133,7 +141,7 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 	pid := atomic.AddUint64(&prevPid, 1)
 
 	// Figure out the place for logs file
-	dir, err := logsDist.DirForPid(pid)
+	dir, err := logsDist.DirForPid(logsDir, pid)
 	if err != nil {
 		return nil, err
 	}

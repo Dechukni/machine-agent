@@ -14,10 +14,9 @@ func TestLogsDistributorCreatesSubdirectories(t *testing.T) {
 
 	distributor := process.DefaultLogsDistributor{
 		MaxDirsCount: 4,
-		LogsBaseDir:  &baseDir,
 	}
 
-	dir, err := distributor.DirForPid(1)
+	dir, err := distributor.DirForPid(baseDir, 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,12 +34,11 @@ func TestLogsDistribution(t *testing.T) {
 
 	distributor := process.DefaultLogsDistributor{
 		MaxDirsCount: 4,
-		LogsBaseDir:  &baseDir,
 	}
 
 	// Those files should be evenly distributed in 4 directories
 	for pid := 1; pid <= 16; pid++ {
-		dir, err := distributor.DirForPid(uint64(pid))
+		dir, err := distributor.DirForPid(baseDir, uint64(pid))
 		if err != nil {
 			t.Fatal(err)
 		}
