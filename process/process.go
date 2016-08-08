@@ -66,6 +66,11 @@ type MachineProcess struct {
 	// but those which are not alive, may have the same NativePid
 	NativePid int `json:"nativePid"`
 
+	// Process log filename
+	logfileName string
+
+	mutex sync.RWMutex
+
 	// Command executed by this process.
 	// If process is not alive then the command value is set to nil
 	command *exec.Cmd
@@ -76,10 +81,7 @@ type MachineProcess struct {
 
 	// Process subscribers, all the outgoing events are go through those subscribers.
 	// If process is not alive then the subscribers value is set to nil
-	subs *subscribersList
-
-	// Process log filename
-	logfileName string
+	subs []*Subscriber
 
 	// Process file logger
 	fileLogger *FileLogger
@@ -95,12 +97,6 @@ type LogMessage struct {
 	Kind string
 	Time time.Time
 	Text string
-}
-
-// Lockable array for storing process subscribers
-type subscribersList struct {
-	sync.RWMutex
-	items []*Subscriber
 }
 
 // Lockable map for storing processes
@@ -164,7 +160,6 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 		pumper:      NewPumper(stdout, stderr),
 		logfileName: filename,
 		fileLogger:  fileLogger,
-		subs:        &subscribersList{},
 	}
 	if firstSubscriber != nil {
 		process.AddSubscriber(firstSubscriber)
@@ -230,41 +225,38 @@ func (mp *MachineProcess) ReadLogs(from time.Time, till time.Time) ([]*LogMessag
 }
 
 func (mp *MachineProcess) RemoveSubscriber(id string) {
-	mp.subs.Lock()
-	defer mp.subs.Unlock()
-	for idx, sub := range mp.subs.items {
-		if sub.Id == id {
-			mp.subs.items = append(mp.subs.items[0:idx], mp.subs.items[idx+1:]...)
-			break
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
+	if mp.Alive {
+		for idx, sub := range mp.subs {
+			if sub.Id == id {
+				mp.subs = append(mp.subs[0:idx], mp.subs[idx+1:]...)
+				break
+			}
 		}
 	}
 }
 
 func (mp *MachineProcess) AddSubscriber(subscriber *Subscriber) error {
-	mp.subs.Lock()
-	defer mp.subs.Unlock()
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
 	if !mp.Alive {
 		return errors.New("Can't subscribe to the events of dead process")
 	}
-	for _, sub := range mp.subs.items {
+	for _, sub := range mp.subs {
 		if sub.Channel == subscriber.Channel {
 			return errors.New("Already subscribed")
 		}
 	}
-	mp.subs.items = append(mp.subs.items, subscriber)
+	mp.subs = append(mp.subs, subscriber)
 	return nil
 }
 
 // Adds a new process subscriber by reading all the logs between
 // given 'after' and now and publishing them to the channel
 func (mp *MachineProcess) RestoreSubscriber(subscriber *Subscriber, after time.Time) error {
-	mp.subs.Lock()
-	defer mp.subs.Unlock()
-	for _, sub := range mp.subs.items {
-		if sub.Channel == subscriber.Channel {
-			return errors.New("Already subscribed")
-		}
-	}
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
 
 	// Read logs between after and now
 	logs, err := mp.ReadLogs(after, time.Now())
@@ -277,7 +269,12 @@ func (mp *MachineProcess) RestoreSubscriber(subscriber *Subscriber, after time.T
 	// may be useful for client to get missed logs, that's why this
 	// function doesn't throw any errors in the case of dead process
 	if mp.Alive {
-		mp.subs.items = append(mp.subs.items, subscriber)
+		for _, sub := range mp.subs {
+			if sub.Channel == subscriber.Channel {
+				return errors.New("Already subscribed")
+			}
+		}
+		mp.subs = append(mp.subs, subscriber)
 	}
 
 	// Publish all the logs between (after, now]
@@ -289,15 +286,19 @@ func (mp *MachineProcess) RestoreSubscriber(subscriber *Subscriber, after time.T
 	return nil
 }
 
-func (mp *MachineProcess) UpdateSubscriber(id string, newMask uint64) {
-	mp.subs.Lock()
-	defer mp.subs.Unlock()
-	for _, sub := range mp.subs.items {
+func (mp *MachineProcess) UpdateSubscriber(id string, newMask uint64) error {
+	mp.mutex.Lock()
+	defer mp.mutex.Unlock()
+	if !mp.Alive {
+		return errors.New("Can't update subscriber, the process is dead")
+	}
+	for _, sub := range mp.subs {
 		if sub.Id == id {
 			sub.Mask = newMask
 			break
 		}
 	}
+	return nil
 }
 
 func (process *MachineProcess) OnStdout(line string, time time.Time) {
@@ -324,12 +325,16 @@ func setDead(pid uint64) {
 	process, ok := processes.items[pid]
 	if ok {
 		process.Alive = false
+		process.command = nil
+		process.pumper = nil
+		process.subs = nil
 	}
 }
 
 func (mp *MachineProcess) publish(event *op.Event, typeBit uint64) {
-	mp.subs.RLock()
-	subs := mp.subs.items
+	mp.mutex.RLock()
+	defer mp.mutex.RUnlock()
+	subs := mp.subs
 	for _, subscriber := range subs {
 		// Check whether subscriber needs such kind of event and then try to notify it
 		if subscriber.Mask&typeBit == typeBit && !tryWrite(subscriber.Channel, event) {
@@ -338,7 +343,6 @@ func (mp *MachineProcess) publish(event *op.Event, typeBit uint64) {
 			defer mp.RemoveSubscriber(subscriber.Id)
 		}
 	}
-	mp.subs.RUnlock()
 }
 
 // Writes to a channel and returns true if write is successful,
