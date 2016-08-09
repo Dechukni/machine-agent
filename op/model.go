@@ -62,9 +62,9 @@ type Result struct {
 	// The actual result data, the operation execution result.
 	Body interface{} `json:"body"`
 
-	// Present only if the operation execution fails due to an error.
 	// Body and Error are mutual exclusive.
-	Error Error `json:"error"`
+	// Present only if the operation execution fails due to an error.
+	Error *Error `json:"error"`
 }
 
 func NewEventNow(eType string, Body interface{}) *Event {

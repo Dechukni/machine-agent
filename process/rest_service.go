@@ -92,7 +92,13 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) error {
 		}
 	}
 
-	process, err := Start(&command, subscriber)
+	process := NewProcess(command)
+
+	if subscriber != nil {
+		process.AddSubscriber(subscriber)
+	}
+
+	err := process.Start()
 	if err != nil {
 		return err
 	}

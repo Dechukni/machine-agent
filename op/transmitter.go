@@ -31,6 +31,6 @@ func (t *defaultTransmitter) Send(message interface{}) {
 func (t *defaultTransmitter) SendError(err Error) {
 	t.channel.output <- &Result{
 		Id:    t.id,
-		Error: err,
+		Error: &err,
 	}
 }

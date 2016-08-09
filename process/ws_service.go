@@ -100,12 +100,12 @@ func StartProcessCallHF(body interface{}, t op.Transmitter) error {
 	startCall := body.(StartProcessCallBody)
 
 	// Creating command
-	command := &Command{
+	command := Command{
 		Name:        startCall.Name,
 		CommandLine: startCall.CommandLine,
 		Type:        startCall.Type,
 	}
-	if err := checkCommand(command); err != nil {
+	if err := checkCommand(&command); err != nil {
 		return op.NewArgsError(err)
 	}
 
@@ -116,8 +116,14 @@ func StartProcessCallHF(body interface{}, t op.Transmitter) error {
 		Channel: t.Channel().Events,
 	}
 
-	_, err := Start(command, subscriber)
-	return err
+	process := NewProcess(command).BeforeEventsHook(func(process *MachineProcess) { t.Send(process) })
+	if subscriber != nil {
+		if err := process.AddSubscriber(subscriber); err != nil {
+			return err
+		}
+	}
+
+	return process.Start()
 }
 
 func KillProcessCallHF(body interface{}, t op.Transmitter) error {

@@ -69,8 +69,6 @@ type MachineProcess struct {
 	// Process log filename
 	logfileName string
 
-	mutex sync.RWMutex
-
 	// Command executed by this process.
 	// If process is not alive then the command value is set to nil
 	command *exec.Cmd
@@ -85,6 +83,12 @@ type MachineProcess struct {
 
 	// Process file logger
 	fileLogger *FileLogger
+
+	mutex sync.RWMutex
+
+	// Called once before any of process events is published
+	// and after process is started
+	beforeEventsHook func(process *MachineProcess)
 }
 
 type Subscriber struct {
@@ -111,26 +115,42 @@ func init() {
 	flag.StringVar(&logsDir, "logs-dir", curDir, "Base directory for process logs")
 }
 
-func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, error) {
+func NewProcess(newCommand Command) *MachineProcess {
+	return &MachineProcess{
+		Name:        newCommand.Name,
+		CommandLine: newCommand.CommandLine,
+		Type:        newCommand.Type,
+	}
+}
+
+// Sets the hook which will be called once before
+// process subscribers notified with any of the process events,
+// and after process is started.
+func (process *MachineProcess) BeforeEventsHook(f func(p *MachineProcess)) *MachineProcess {
+	process.beforeEventsHook = f
+	return process
+}
+
+func (process *MachineProcess) Start() error {
 	// wrap command to be able to kill child processes see https://github.com/golang/go/issues/8854
-	cmd := exec.Command("setsid", "sh", "-c", newCommand.CommandLine)
+	cmd := exec.Command("setsid", "sh", "-c", process.CommandLine)
 
 	// getting stdout pipe
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// getting stderr pipe
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// starting a new process
 	err = cmd.Start()
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// increment current pid & assign it to the value
@@ -139,31 +159,24 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 	// Figure out the place for logs file
 	dir, err := logsDist.DirForPid(logsDir, pid)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	filename := fmt.Sprintf("%s%cpid-%d", dir, os.PathSeparator, pid)
 
 	fileLogger, err := NewLogger(filename)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	// create & save process
-	process := &MachineProcess{
-		Pid:         pid,
-		Name:        newCommand.Name,
-		CommandLine: newCommand.CommandLine,
-		Type:        newCommand.Type,
-		Alive:       true,
-		NativePid:   cmd.Process.Pid,
-		command:     cmd,
-		pumper:      NewPumper(stdout, stderr),
-		logfileName: filename,
-		fileLogger:  fileLogger,
-	}
-	if firstSubscriber != nil {
-		process.AddSubscriber(firstSubscriber)
-	}
+	// save process
+	process.Pid = pid
+	process.Alive = true
+	process.NativePid = cmd.Process.Pid
+	process.command = cmd
+	process.pumper = NewPumper(stdout, stderr)
+	process.logfileName = filename
+	process.fileLogger = fileLogger
+
 	processes.Lock()
 	processes.items[pid] = process
 	processes.Unlock()
@@ -171,6 +184,10 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 	// register logs consumers
 	process.pumper.AddConsumer(fileLogger)
 	process.pumper.AddConsumer(process)
+
+	if process.beforeEventsHook != nil {
+		process.beforeEventsHook(process)
+	}
 
 	// before pumping is started publish process_started event
 	body := &ProcessStatusEventBody{
@@ -187,8 +204,7 @@ func Start(newCommand *Command, firstSubscriber *Subscriber) (*MachineProcess, e
 		process.pumper.Pump()
 	}()
 
-	// publish the process
-	return process, nil
+	return nil
 }
 
 func Get(pid uint64) (*MachineProcess, bool) {
@@ -227,12 +243,10 @@ func (mp *MachineProcess) ReadLogs(from time.Time, till time.Time) ([]*LogMessag
 func (mp *MachineProcess) RemoveSubscriber(id string) {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
-	if mp.Alive {
-		for idx, sub := range mp.subs {
-			if sub.Id == id {
-				mp.subs = append(mp.subs[0:idx], mp.subs[idx+1:]...)
-				break
-			}
+	for idx, sub := range mp.subs {
+		if sub.Id == id {
+			mp.subs = append(mp.subs[0:idx], mp.subs[idx+1:]...)
+			break
 		}
 	}
 }
@@ -240,11 +254,11 @@ func (mp *MachineProcess) RemoveSubscriber(id string) {
 func (mp *MachineProcess) AddSubscriber(subscriber *Subscriber) error {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
-	if !mp.Alive {
+	if !mp.Alive && mp.NativePid != 0 {
 		return errors.New("Can't subscribe to the events of dead process")
 	}
 	for _, sub := range mp.subs {
-		if sub.Channel == subscriber.Channel {
+		if sub.Id == subscriber.Id {
 			return errors.New("Already subscribed")
 		}
 	}
@@ -270,7 +284,7 @@ func (mp *MachineProcess) RestoreSubscriber(subscriber *Subscriber, after time.T
 	// function doesn't throw any errors in the case of dead process
 	if mp.Alive {
 		for _, sub := range mp.subs {
-			if sub.Channel == subscriber.Channel {
+			if sub.Id == subscriber.Id {
 				return errors.New("Already subscribed")
 			}
 		}
