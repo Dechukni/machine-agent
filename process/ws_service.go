@@ -24,86 +24,97 @@ var OpRoutes = op.RoutesGroup{
 		{
 			ProcessStartOp,
 			func(body []byte) (interface{}, error) {
-				b := StartProcessCallBody{}
+				b := startBody{}
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			StartProcessCallHF,
+			startProcessHF,
 		},
 		{
 			ProcessKillOp,
 			func(body []byte) (interface{}, error) {
-				b := KillProcessCallBody{}
+				b := killBody{}
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			KillProcessCallHF,
+			killProcessHF,
 		},
 		{
 			ProcessSubscribeOp,
 			func(body []byte) (interface{}, error) {
-				b := SubscribeToProcessCallBody{}
+				b := subscribeBody{}
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			SubscribeToProcessCallHF,
+			subscribeHF,
 		},
 		{
 			ProcessUnsubscribeOp,
 			func(body []byte) (interface{}, error) {
-				b := UnsubscribeFromProcessCallBody{}
+				b := unsubscribeBody{}
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			UnsubscribeFromProcessCallHF,
+			unsubscribeHF,
 		},
 		{
 			ProcessUpdateSubscriberOp,
 			func(body []byte) (interface{}, error) {
-				b := UpdateProcessSubscriberCallBody{}
+				b := updateSubscriberBody{}
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			UpdateProcessSubscriberCallHF,
+			updateSubscriberHF,
 		},
 	},
 }
 
-type StartProcessCallBody struct {
+type startBody struct {
 	Name        string `json:"name"`
 	CommandLine string `json:"commandLine"`
 	Type        string `json:"type"`
 	EventTypes  string `json:"eventTypes"`
 }
 
-type KillProcessCallBody struct {
+type killBody struct {
 	Pid       uint64 `json:"pid"`
 	NativePid uint64 `json:"nativePid"`
 }
 
-type SubscribeToProcessCallBody struct {
+type subscribeBody struct {
 	Pid        uint64 `json:"pid"`
 	EventTypes string `json:"eventTypes"`
 	After      string `json:"after"`
 }
 
-type UnsubscribeFromProcessCallBody struct {
+type subscribeResult struct {
+	Pid        uint64 `json:"pid"`
+	EventTypes string `json:"eventTypes"`
+	Text       string `json:"text"`
+}
+
+type unsubscribeBody struct {
 	Pid uint64 `json:"pid"`
 }
 
-type UpdateProcessSubscriberCallBody struct {
+type updateSubscriberBody struct {
 	Pid        uint64 `json:"pid"`
 	EventTypes string `json:"eventTypes"`
 }
 
-func StartProcessCallHF(body interface{}, t op.Transmitter) error {
-	startCall := body.(StartProcessCallBody)
+type processOpResult struct {
+	Pid  uint64 `json:"pid"`
+	Text string `json:"text"`
+}
+
+func startProcessHF(body interface{}, t op.Transmitter) error {
+	startBody := body.(startBody)
 
 	// Creating command
 	command := Command{
-		Name:        startCall.Name,
-		CommandLine: startCall.CommandLine,
-		Type:        startCall.Type,
+		Name:        startBody.Name,
+		CommandLine: startBody.CommandLine,
+		Type:        startBody.Type,
 	}
 	if err := checkCommand(&command); err != nil {
 		return op.NewArgsError(err)
@@ -112,11 +123,13 @@ func StartProcessCallHF(body interface{}, t op.Transmitter) error {
 	// Detecting subscription mask
 	subscriber := &Subscriber{
 		Id:      t.Channel().Id,
-		Mask:    parseTypes(startCall.EventTypes),
+		Mask:    parseTypes(startBody.EventTypes),
 		Channel: t.Channel().Events,
 	}
 
-	process := NewProcess(command).BeforeEventsHook(func(process *MachineProcess) { t.Send(process) })
+	process := NewProcess(command).BeforeEventsHook(func(process *MachineProcess) {
+		t.Send(process)
+	})
 	if subscriber != nil {
 		if err := process.AddSubscriber(subscriber); err != nil {
 			return err
@@ -126,17 +139,24 @@ func StartProcessCallHF(body interface{}, t op.Transmitter) error {
 	return process.Start()
 }
 
-func KillProcessCallHF(body interface{}, t op.Transmitter) error {
-	killBody := body.(KillProcessCallBody)
+func killProcessHF(body interface{}, t op.Transmitter) error {
+	killBody := body.(killBody)
 	p, ok := Get(killBody.Pid)
 	if !ok {
 		return newNoSuchProcessError(killBody.Pid)
 	}
-	return p.Kill()
+	if err := p.Kill(); err != nil {
+		return err
+	}
+	t.Send(&processOpResult{
+		Pid:  killBody.Pid,
+		Text: "Successfully killed",
+	})
+	return nil
 }
 
-func SubscribeToProcessCallHF(body interface{}, t op.Transmitter) error {
-	subscribeBody := body.(SubscribeToProcessCallBody)
+func subscribeHF(body interface{}, t op.Transmitter) error {
+	subscribeBody := body.(subscribeBody)
 	p, ok := Get(subscribeBody.Pid)
 	if !ok {
 		return newNoSuchProcessError(subscribeBody.Pid)
@@ -157,22 +177,33 @@ func SubscribeToProcessCallHF(body interface{}, t op.Transmitter) error {
 	if err != nil {
 		return op.NewArgsError(errors.New("Bad format of 'after', " + err.Error()))
 	}
-	return p.RestoreSubscriber(subscriber, after)
+	if err := p.RestoreSubscriber(subscriber, after); err != nil {
+		return err
+	}
+	t.Send(&subscribeResult{
+		Pid:        p.Pid,
+		EventTypes: subscribeBody.EventTypes,
+		Text:       "Successfully unsubscribed",
+	})
+	return nil
 }
 
-func UnsubscribeFromProcessCallHF(call interface{}, t op.Transmitter) error {
-	ubsubscribeBody := call.(UnsubscribeFromProcessCallBody)
+func unsubscribeHF(call interface{}, t op.Transmitter) error {
+	ubsubscribeBody := call.(unsubscribeBody)
 	p, ok := Get(ubsubscribeBody.Pid)
 	if !ok {
 		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", ubsubscribeBody.Pid))
 	}
-
 	p.RemoveSubscriber(t.Channel().Id)
+	t.Send(&processOpResult{
+		Pid:  p.Pid,
+		Text: "Successfully unsubscribed",
+	})
 	return nil
 }
 
-func UpdateProcessSubscriberCallHF(body interface{}, t op.Transmitter) error {
-	updateBody := body.(UpdateProcessSubscriberCallBody)
+func updateSubscriberHF(body interface{}, t op.Transmitter) error {
+	updateBody := body.(updateSubscriberBody)
 	p, ok := Get(updateBody.Pid)
 	if !ok {
 		return newNoSuchProcessError(updateBody.Pid)
@@ -181,7 +212,14 @@ func UpdateProcessSubscriberCallHF(body interface{}, t op.Transmitter) error {
 		return op.NewArgsError(errors.New("'eventTypes' required for subscriber update"))
 	}
 
-	p.UpdateSubscriber(t.Channel().Id, maskFromTypes(updateBody.EventTypes))
+	if err := p.UpdateSubscriber(t.Channel().Id, maskFromTypes(updateBody.EventTypes)); err != nil {
+		return err
+	}
+	t.Send(&subscribeResult{
+		Pid:        p.Pid,
+		EventTypes: updateBody.EventTypes,
+		Text:       "Subscriber successfully updated",
+	})
 	return nil
 }
 
