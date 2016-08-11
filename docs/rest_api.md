@@ -109,6 +109,9 @@ don't forget to encode this query parameter
 - `till`(optional) - time to get logs till e.g. _2016-07-12T01:49:04.097980475+03:00_ the format is _RFC3339Nano_
 don't forget to encode this query parameter
 - `format`(optional) - the format of the response, default is `json`, possible values are: `text`, `json`
+- `limit`(optional) - the limit of logs in result, the default value is _50_, logs are limited from the 
+latest to the earliest
+- `skip` (optional) - the logs to skip, default value is `0`
 
 #### Response
 

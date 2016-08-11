@@ -14,6 +14,7 @@ const (
 	ProcessSubscribeOp        = "process.subscribe"
 	ProcessUnsubscribeOp      = "process.unsubscribe"
 	ProcessUpdateSubscriberOp = "process.updateSubscriber"
+	ProcessGetLogs            = "process.getLogs"
 
 	NoSuchProcessErrorCode = 20000
 )
@@ -28,7 +29,7 @@ var OpRoutes = op.RoutesGroup{
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			startProcessHF,
+			startProcessCallHF,
 		},
 		{
 			ProcessKillOp,
@@ -37,7 +38,7 @@ var OpRoutes = op.RoutesGroup{
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			killProcessHF,
+			killProcessCallHF,
 		},
 		{
 			ProcessSubscribeOp,
@@ -46,7 +47,7 @@ var OpRoutes = op.RoutesGroup{
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			subscribeHF,
+			subscribeCallHF,
 		},
 		{
 			ProcessUnsubscribeOp,
@@ -55,7 +56,7 @@ var OpRoutes = op.RoutesGroup{
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			unsubscribeHF,
+			unsubscribeCallHF,
 		},
 		{
 			ProcessUpdateSubscriberOp,
@@ -64,7 +65,7 @@ var OpRoutes = op.RoutesGroup{
 				err := json.Unmarshal(body, &b)
 				return b, err
 			},
-			updateSubscriberHF,
+			updateSubscriberCallHF,
 		},
 	},
 }
@@ -107,7 +108,7 @@ type processOpResult struct {
 	Text string `json:"text"`
 }
 
-func startProcessHF(body interface{}, t op.Transmitter) error {
+func startProcessCallHF(body interface{}, t op.Transmitter) error {
 	startBody := body.(startBody)
 
 	// Creating command
@@ -139,7 +140,7 @@ func startProcessHF(body interface{}, t op.Transmitter) error {
 	return process.Start()
 }
 
-func killProcessHF(body interface{}, t op.Transmitter) error {
+func killProcessCallHF(body interface{}, t op.Transmitter) error {
 	killBody := body.(killBody)
 	p, ok := Get(killBody.Pid)
 	if !ok {
@@ -155,7 +156,7 @@ func killProcessHF(body interface{}, t op.Transmitter) error {
 	return nil
 }
 
-func subscribeHF(body interface{}, t op.Transmitter) error {
+func subscribeCallHF(body interface{}, t op.Transmitter) error {
 	subscribeBody := body.(subscribeBody)
 	p, ok := Get(subscribeBody.Pid)
 	if !ok {
@@ -188,7 +189,7 @@ func subscribeHF(body interface{}, t op.Transmitter) error {
 	return nil
 }
 
-func unsubscribeHF(call interface{}, t op.Transmitter) error {
+func unsubscribeCallHF(call interface{}, t op.Transmitter) error {
 	ubsubscribeBody := call.(unsubscribeBody)
 	p, ok := Get(ubsubscribeBody.Pid)
 	if !ok {
@@ -202,7 +203,7 @@ func unsubscribeHF(call interface{}, t op.Transmitter) error {
 	return nil
 }
 
-func updateSubscriberHF(body interface{}, t op.Transmitter) error {
+func updateSubscriberCallHF(body interface{}, t op.Transmitter) error {
 	updateBody := body.(updateSubscriberBody)
 	p, ok := Get(updateBody.Pid)
 	if !ok {

@@ -8,6 +8,7 @@ import (
 	"github.com/evoevodin/machine-agent/rest/restutil"
 	"github.com/gorilla/mux"
 	"io"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -21,54 +22,54 @@ var HttpRoutes = rest.RoutesGroup{
 			"POST",
 			"Start Process",
 			"/process",
-			StartProcessHF,
+			startProcessHF,
 		},
 		{
 			"GET",
 			"Get Process",
 			"/process/{pid}",
-			GetProcessHF,
+			getProcessHF,
 		},
 		{
 			"DELETE",
 			"Kill Process",
 			"/process/{pid}",
-			KillProcessHF,
+			killProcessHF,
 		},
 		{
 			"GET",
 			"Get Process Logs",
 			"/process/{pid}/logs",
-			GetProcessLogsHF,
+			getProcessLogsHF,
 		},
 		{
 			"GET",
 			"Get Processes",
 			"/process",
-			GetProcessesHF,
+			getProcessesHF,
 		},
 		{
 			"DELETE",
 			"Unsubscribe from Process Events",
 			"/process/{pid}/events/{channel}",
-			UnsubscribeHF,
+			unsubscribeHF,
 		},
 		{
 			"POST",
 			"Subscribe to Process Events",
 			"/process/{pid}/events/{channel}",
-			SubscribeHF,
+			subscribeHF,
 		},
 		{
 			"PUT",
 			"Update Process Events Subscriber",
 			"/process/{pid}/events/{channel}",
-			UpdateSubscriberHF,
+			updateSubscriberHF,
 		},
 	},
 }
 
-func StartProcessHF(w http.ResponseWriter, r *http.Request) error {
+func startProcessHF(w http.ResponseWriter, r *http.Request) error {
 	command := Command{}
 	restutil.ReadJson(r, &command)
 	if err := checkCommand(&command); err != nil {
@@ -86,9 +87,9 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) error {
 			return rest.NotFound(errors.New(m))
 		}
 		subscriber = &Subscriber{
-			Id : channelId,
-			Mask: parseTypes(r.URL.Query().Get("types")),
-			Channel : channel.Events,
+			Id:      channelId,
+			Mask:    parseTypes(r.URL.Query().Get("types")),
+			Channel: channel.Events,
 		}
 	}
 
@@ -105,7 +106,7 @@ func StartProcessHF(w http.ResponseWriter, r *http.Request) error {
 	return restutil.WriteJson(w, process)
 }
 
-func GetProcessHF(w http.ResponseWriter, r *http.Request) error {
+func getProcessHF(w http.ResponseWriter, r *http.Request) error {
 	pid, err := parsePid(mux.Vars(r)["pid"])
 	if err != nil {
 		return rest.BadRequest(err)
@@ -119,7 +120,7 @@ func GetProcessHF(w http.ResponseWriter, r *http.Request) error {
 	return restutil.WriteJson(w, process)
 }
 
-func KillProcessHF(w http.ResponseWriter, r *http.Request) error {
+func killProcessHF(w http.ResponseWriter, r *http.Request) error {
 	pid, err := parsePid(mux.Vars(r)["pid"])
 	if err != nil {
 		return rest.BadRequest(err)
@@ -134,7 +135,7 @@ func KillProcessHF(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) error {
+func getProcessLogsHF(w http.ResponseWriter, r *http.Request) error {
 	pid, err := parsePid(mux.Vars(r)["pid"])
 	if err != nil {
 		return rest.BadRequest(err)
@@ -163,21 +164,36 @@ func GetProcessLogsHF(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
+	// limit logs from the latest to the earliest
+	// limit - how many the latest logs will be present
+	// skip - how many log lines should be skipped from the end
+	limit := restutil.IntQueryParam(r, "limit", DefaultLogsLimit)
+	skip := restutil.IntQueryParam(r, "skip", 0)
+	if limit < 1 {
+		return rest.BadRequest(errors.New("Required 'limit' to be > 0"))
+	}
+	if skip < 0 {
+		return rest.BadRequest(errors.New("Required 'skip' to be >= 0"))
+	}
+	len := len(logs)
+	fromIdx := int(math.Max(float64(len-limit-skip), 0))
+	toIdx := len - int(math.Min(float64(skip), float64(len)))
+
 	// Respond with an appropriate logs format, default json
 	format := r.URL.Query().Get("format")
 	switch strings.ToLower(format) {
 	case "text":
-		for _, item := range logs {
+		for _, item := range logs[fromIdx:toIdx] {
 			line := fmt.Sprintf("[%s] %s \t %s", item.Kind, item.Time.Format(DateTimeFormat), item.Text)
 			io.WriteString(w, line)
 		}
 	default:
-		return restutil.WriteJson(w, logs)
+		return restutil.WriteJson(w, logs[fromIdx:toIdx])
 	}
 	return nil
 }
 
-func GetProcessesHF(w http.ResponseWriter, r *http.Request) error {
+func getProcessesHF(w http.ResponseWriter, r *http.Request) error {
 	all, err := strconv.ParseBool(r.URL.Query().Get("all"))
 	if err != nil {
 		all = false
@@ -185,7 +201,7 @@ func GetProcessesHF(w http.ResponseWriter, r *http.Request) error {
 	return restutil.WriteJson(w, GetProcesses(all))
 }
 
-func UnsubscribeHF(w http.ResponseWriter, r *http.Request) error {
+func unsubscribeHF(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	pid, err := parsePid(vars["pid"])
 	if err != nil {
@@ -210,7 +226,7 @@ func UnsubscribeHF(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func SubscribeHF(w http.ResponseWriter, r *http.Request) error {
+func subscribeHF(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	pid, err := parsePid(vars["pid"])
 	if err != nil {
@@ -246,7 +262,7 @@ func SubscribeHF(w http.ResponseWriter, r *http.Request) error {
 
 }
 
-func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) error {
+func updateSubscriberHF(w http.ResponseWriter, r *http.Request) error {
 	vars := mux.Vars(r)
 	pid, err := parsePid(vars["pid"])
 	if err != nil {
@@ -274,27 +290,4 @@ func UpdateSubscriberHF(w http.ResponseWriter, r *http.Request) error {
 	}
 	p.UpdateSubscriber(channel.Id, maskFromTypes(types))
 	return nil
-}
-
-func maskFromTypes(types string) uint64 {
-	var mask uint64
-	for _, t := range strings.Split(types, ",") {
-		switch strings.ToLower(strings.TrimSpace(t)) {
-		case "stderr":
-			mask |= StderrBit
-		case "stdout":
-			mask |= StdoutBit
-		case "process_status":
-			mask |= ProcessStatusBit
-		}
-	}
-	return mask
-}
-
-func parseTypes(types string) uint64 {
-	var mask uint64 = DefaultMask
-	if types != "" {
-		mask = maskFromTypes(types)
-	}
-	return mask
 }
