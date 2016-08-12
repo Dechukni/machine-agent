@@ -98,9 +98,9 @@ type Subscriber struct {
 }
 
 type LogMessage struct {
-	Kind string
-	Time time.Time
-	Text string
+	Kind string    `json:"kind"`
+	Time time.Time `json:"time"`
+	Text string    `json:"text"`
 }
 
 // Lockable map for storing processes

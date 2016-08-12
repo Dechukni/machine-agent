@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/evoevodin/machine-agent/op"
+	"math"
 	"time"
 )
 
@@ -14,7 +15,7 @@ const (
 	ProcessSubscribeOp        = "process.subscribe"
 	ProcessUnsubscribeOp      = "process.unsubscribe"
 	ProcessUpdateSubscriberOp = "process.updateSubscriber"
-	ProcessGetLogs            = "process.getLogs"
+	ProcessGetLogsOp          = "process.getLogs"
 
 	NoSuchProcessErrorCode = 20000
 )
@@ -67,6 +68,15 @@ var OpRoutes = op.RoutesGroup{
 			},
 			updateSubscriberCallHF,
 		},
+		{
+			ProcessGetLogsOp,
+			func(body []byte) (interface{}, error) {
+				b := getLogsBody{}
+				err := json.Unmarshal(body, &b)
+				return b, err
+			},
+			getProcessLogsCallHF,
+		},
 	},
 }
 
@@ -106,6 +116,14 @@ type updateSubscriberBody struct {
 type processOpResult struct {
 	Pid  uint64 `json:"pid"`
 	Text string `json:"text"`
+}
+
+type getLogsBody struct {
+	Pid   uint64 `json:"pid"`
+	From  string `json:"from"`
+	Till  string `json:"till"`
+	Limit int    `json:"limit"`
+	Skip  int    `json:"skip"`
 }
 
 func startProcessCallHF(body interface{}, t op.Transmitter) error {
@@ -190,10 +208,10 @@ func subscribeCallHF(body interface{}, t op.Transmitter) error {
 }
 
 func unsubscribeCallHF(call interface{}, t op.Transmitter) error {
-	ubsubscribeBody := call.(unsubscribeBody)
-	p, ok := Get(ubsubscribeBody.Pid)
+	unsubscribeBody := call.(unsubscribeBody)
+	p, ok := Get(unsubscribeBody.Pid)
 	if !ok {
-		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", ubsubscribeBody.Pid))
+		return errors.New(fmt.Sprintf("Process with id '%s' doesn't exist", unsubscribeBody.Pid))
 	}
 	p.RemoveSubscriber(t.Channel().Id)
 	t.Send(&processOpResult{
@@ -221,6 +239,52 @@ func updateSubscriberCallHF(body interface{}, t op.Transmitter) error {
 		EventTypes: updateBody.EventTypes,
 		Text:       "Subscriber successfully updated",
 	})
+	return nil
+}
+
+func getProcessLogsCallHF(body interface{}, t op.Transmitter) error {
+	args := body.(getLogsBody)
+	p, ok := Get(args.Pid)
+	if !ok {
+		return newNoSuchProcessError(args.Pid)
+	}
+
+	from, err := parseTime(args.From, time.Time{})
+	if err != nil {
+		return op.NewArgsError(errors.New("Bad format of 'from', " + err.Error()))
+	}
+
+	till, err := parseTime(args.Till, time.Now())
+	if err != nil {
+		return op.NewArgsError(errors.New("Bad format of 'till', " + err.Error()))
+	}
+
+	logs, err := p.ReadLogs(from, till)
+	if err != nil {
+		return err
+	}
+
+	limit := DefaultLogsLimit
+	if args.Limit != 0 {
+		if limit < 1 {
+			return op.NewArgsError(errors.New("Required 'limit' to be > 0"))
+		}
+		limit = args.Limit
+	}
+
+	skip := 0
+	if args.Skip != 0 {
+		if skip < 0 {
+			return op.NewArgsError(errors.New("Required 'skip' to be >= 0"))
+		}
+		skip = args.Skip
+	}
+
+	len := len(logs)
+	fromIdx := int(math.Max(float64(len-limit-skip), 0))
+	toIdx := len - int(math.Min(float64(skip), float64(len)))
+
+	t.Send(logs[fromIdx:toIdx])
 	return nil
 }
 

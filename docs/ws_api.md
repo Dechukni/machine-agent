@@ -217,3 +217,65 @@ received by this channel.
     }
 }
 ```
+
+#### Get process logs
+
+##### Call
+
+- _pid__ - the id of the process to get logs
+- __from__(optional) - time to get logs from e.g. _2016-07-12T01:48:04.097980475+03:00_ the format is _RFC3339Nano_
+- __till__(optional) - time to get logs till e.g. _2016-07-12T01:49:04.097980475+03:00_ the format is _RFC3339Nano_
+- __format__(optional) - the format of the response, default is `json`, possible values are: `text`, `json`
+- __limit__(optional) - the limit of logs in result, the default value is _50_, logs are limited from the
+latest to the earliest
+- __skip__ (optional) - the logs to skip, default value is `0`
+
+```json
+{
+    "operation" : "process.getLogs",
+    "id" : "0x12345",
+    "body" : {
+        "pid" : 123,
+        "limit" : 5
+        "skip" : 5
+    }
+}
+```
+
+##### Result
+
+For the command `printf "1\n2\n3\n4\n5\n6\n7\n8\n9\n10`, the result will look like
+
+```json
+{
+    "id":"0x12345",
+    "body":[
+        {
+            "kind":"STDOUT",
+            "time":"2016-08-12T10:32:27.402071035+03:00",
+            "text":"1"
+        },
+        {
+            "kind":"STDOUT",
+            "time":"2016-08-12T10:32:27.402132445+03:00",
+            "text":"25"
+        },
+        {
+            "kind":"STDOUT",
+            "time":"2016-08-12T10:32:27.402161646+03:00",
+            "text":"35"
+        },
+        {
+            "kind":"STDOUT",
+            "time":"2016-08-12T10:32:27.402311053+03:00",
+            "text":"4"
+        },
+        {
+            "kind":"STDOUT",
+            "time":"2016-08-12T10:32:27.402372926+03:00",
+            "text":"5"
+        }
+    ],
+    "error":null
+}
+```
