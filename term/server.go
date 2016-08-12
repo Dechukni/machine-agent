@@ -1,4 +1,4 @@
-package terminal
+package term
 
 /*
  * websocket/pty proxy server:
@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"flag"
 	"github.com/eclipse/che-lib/pty"
+	"github.com/evoevodin/machine-agent/rest"
 	"github.com/gorilla/websocket"
 	"io"
 	"log"
@@ -54,7 +55,20 @@ var (
 			return true
 		},
 	}
+
+	HttpRoutes = rest.RoutesGroup{
+		"Terminal routes",
+		[]rest.Route{
+			{
+				"GET",
+				"Connect to pty(webscoket)",
+				"/pty",
+				ConnectToPtyHF,
+			},
+		},
+	}
 )
+
 
 func init() {
 	flag.StringVar(&cmdFlag, "cmd", "/bin/bash", "command to execute on slave side of the pty")
@@ -221,4 +235,9 @@ func ptyHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	wp.Stop()
+}
+
+func ConnectToPtyHF(w http.ResponseWriter, r *http.Request) error {
+	ptyHandler(w, r)
+	return nil
 }

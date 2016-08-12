@@ -6,18 +6,19 @@ import (
 	"github.com/evoevodin/machine-agent/op"
 	"github.com/evoevodin/machine-agent/process"
 	"github.com/evoevodin/machine-agent/rest"
-	"github.com/evoevodin/machine-agent/terminal"
+	"github.com/evoevodin/machine-agent/term"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"time"
+	"os"
 )
 
 var (
 	AppHttpRoutes = []rest.RoutesGroup{
 		process.HttpRoutes,
 		op.HttpRoutes,
-		terminal.HttpRoutes,
+		term.HttpRoutes,
 	}
 
 	AppOpRoutes = []op.RoutesGroup{
@@ -33,6 +34,9 @@ func init() {
 
 func main() {
 	flag.Parse()
+
+	// cleanup logs dir, if needed
+	os.RemoveAll(process.LogsDir)
 
 	router := mux.NewRouter().StrictSlash(true)
 	fmt.Print("⇩ Registered HttpRoutes:\n\n")
@@ -58,7 +62,7 @@ func main() {
 		}
 	}
 
-	go terminal.Activity.StartTracking()
+	go term.Activity.StartTracking()
 
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 	http.Handle("/", router)

@@ -30,7 +30,7 @@ var (
 	prevPid   uint64 = 0
 	processes        = &processesMap{items: make(map[uint64]*MachineProcess)}
 	logsDist         = NewLogsDistributor()
-	logsDir   string
+	LogsDir   string
 )
 
 type Command struct {
@@ -112,7 +112,7 @@ type processesMap struct {
 func init() {
 	curDir, _ := os.Getwd()
 	curDir += string(os.PathSeparator) + "logs"
-	flag.StringVar(&logsDir, "logs-dir", curDir, "Base directory for process logs")
+	flag.StringVar(&LogsDir, "logs-dir", curDir, "Base directory for process logs")
 }
 
 func NewProcess(newCommand Command) *MachineProcess {
@@ -157,7 +157,7 @@ func (process *MachineProcess) Start() error {
 	pid := atomic.AddUint64(&prevPid, 1)
 
 	// Figure out the place for logs file
-	dir, err := logsDist.DirForPid(logsDir, pid)
+	dir, err := logsDist.DirForPid(LogsDir, pid)
 	if err != nil {
 		return err
 	}

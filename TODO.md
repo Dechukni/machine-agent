@@ -1,2 +1,1 @@
-- Cleanup processes/logs when they are not used for some period of time
 - Cleanup/Restore processes when machine restored from snapshot
