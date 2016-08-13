@@ -73,21 +73,21 @@ func pump(r io.Reader, lineConsumer acceptLine, wg *sync.WaitGroup) {
 			return
 		}
 
-		lineConsumer(string(line))
+		lineConsumer(string(line[:len(line) - 1]))
 	}
 }
 
 func (pumper *LogsPumper) notifyStdout(line string) {
-	time := time.Now()
+	t := time.Now()
 	for _, client := range pumper.clients {
-		client.OnStdout(line, time)
+		client.OnStdout(line, t)
 	}
 }
 
 func (pumper *LogsPumper) notifyStderr(line string) {
-	time := time.Now()
+	t := time.Now()
 	for _, client := range pumper.clients {
-		client.OnStderr(line, time)
+		client.OnStderr(line, t)
 	}
 }
 

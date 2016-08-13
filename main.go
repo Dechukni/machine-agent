@@ -10,8 +10,8 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-	"time"
 	"os"
+	"time"
 )
 
 var (
@@ -35,7 +35,7 @@ func init() {
 func main() {
 	flag.Parse()
 
-	// cleanup logs dir, if needed
+	// cleanup logs dir
 	os.RemoveAll(process.LogsDir)
 
 	router := mux.NewRouter().StrictSlash(true)
@@ -62,6 +62,7 @@ func main() {
 		}
 	}
 
+	go process.NewCleaner().CleanupDeadUnusedProcesses()
 	go term.Activity.StartTracking()
 
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))

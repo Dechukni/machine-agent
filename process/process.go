@@ -1,4 +1,3 @@
-// Exposes API for machines process management
 package process
 
 import (
@@ -85,6 +84,9 @@ type MachineProcess struct {
 	fileLogger *FileLogger
 
 	mutex sync.RWMutex
+
+	// When the process was last time used by client
+	lastUsed time.Time
 
 	// Called once before any of process events is published
 	// and after process is started
@@ -176,6 +178,7 @@ func (process *MachineProcess) Start() error {
 	process.pumper = NewPumper(stdout, stderr)
 	process.logfileName = filename
 	process.fileLogger = fileLogger
+	process.lastUsed = time.Now()
 
 	processes.Lock()
 	processes.items[pid] = process
@@ -196,13 +199,10 @@ func (process *MachineProcess) Start() error {
 		Name:             process.Name,
 		CommandLine:      process.CommandLine,
 	}
-	process.publish(op.NewEventNow(ProcessStartedEventType, body), ProcessStatusBit)
+	process.notifySubs(op.NewEventNow(ProcessStartedEventType, body), ProcessStatusBit)
 
 	// start pumping 'pumper.Pump' is blocking
-	go func() {
-		defer setDead(pid)
-		process.pumper.Pump()
-	}()
+	go process.pumper.Pump()
 
 	return nil
 }
@@ -233,6 +233,9 @@ func (mp *MachineProcess) Kill() error {
 }
 
 func (mp *MachineProcess) ReadLogs(from time.Time, till time.Time) ([]*LogMessage, error) {
+	mp.mutex.Lock()
+	mp.lastUsed = time.Now()
+	mp.mutex.Unlock()
 	fl := mp.fileLogger
 	if mp.Alive {
 		fl.Flush()
@@ -243,6 +246,7 @@ func (mp *MachineProcess) ReadLogs(from time.Time, till time.Time) ([]*LogMessag
 func (mp *MachineProcess) RemoveSubscriber(id string) {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
+	mp.lastUsed = time.Now()
 	for idx, sub := range mp.subs {
 		if sub.Id == id {
 			mp.subs = append(mp.subs[0:idx], mp.subs[idx+1:]...)
@@ -271,6 +275,8 @@ func (mp *MachineProcess) AddSubscriber(subscriber *Subscriber) error {
 func (mp *MachineProcess) RestoreSubscriber(subscriber *Subscriber, after time.Time) error {
 	mp.mutex.Lock()
 	defer mp.mutex.Unlock()
+
+	mp.lastUsed = time.Now()
 
 	// Read logs between after and now
 	logs, err := mp.ReadLogs(after, time.Now())
@@ -316,36 +322,36 @@ func (mp *MachineProcess) UpdateSubscriber(id string, newMask uint64) error {
 }
 
 func (process *MachineProcess) OnStdout(line string, time time.Time) {
-	process.publish(newOutputEvent(process.Pid, StdoutEventType, line, time), StdoutBit)
+	process.notifySubs(newOutputEvent(process.Pid, StdoutEventType, line, time), StdoutBit)
 }
 
 func (process *MachineProcess) OnStderr(line string, time time.Time) {
-	process.publish(newOutputEvent(process.Pid, StderrEventType, line, time), StderrBit)
+	process.notifySubs(newOutputEvent(process.Pid, StderrEventType, line, time), StderrBit)
 }
 
-func (process *MachineProcess) Close() {
+func (mp *MachineProcess) Close() {
+	// Cleanup process resources before is dead event is sent
+	mp.mutex.Lock()
+	mp.lastUsed = time.Now()
+	mp.Alive = false
+	mp.command = nil
+	mp.pumper = nil
+	mp.mutex.Unlock()
+
 	body := &ProcessStatusEventBody{
-		ProcessEventBody: ProcessEventBody{Pid: process.Pid},
-		NativePid:        process.NativePid,
-		Name:             process.Name,
-		CommandLine:      process.CommandLine,
+		ProcessEventBody: ProcessEventBody{Pid: mp.Pid},
+		NativePid:        mp.NativePid,
+		Name:             mp.Name,
+		CommandLine:      mp.CommandLine,
 	}
-	process.publish(op.NewEventNow(ProcessDiedEventType, body), ProcessStatusBit)
+	mp.notifySubs(op.NewEventNow(ProcessDiedEventType, body), ProcessStatusBit)
+
+	mp.mutex.Lock()
+	mp.subs = nil
+	mp.mutex.Unlock()
 }
 
-func setDead(pid uint64) {
-	processes.Lock()
-	defer processes.Unlock()
-	process, ok := processes.items[pid]
-	if ok {
-		process.Alive = false
-		process.command = nil
-		process.pumper = nil
-		process.subs = nil
-	}
-}
-
-func (mp *MachineProcess) publish(event *op.Event, typeBit uint64) {
+func (mp *MachineProcess) notifySubs(event *op.Event, typeBit uint64) {
 	mp.mutex.RLock()
 	defer mp.mutex.RUnlock()
 	subs := mp.subs

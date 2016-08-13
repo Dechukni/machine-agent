@@ -1,1 +1,0 @@
-- Cleanup/Restore processes when machine restored from snapshot
