@@ -24,3 +24,7 @@ func Conflict(err error) error {
 func Forbidden(err error) error {
 	return ApiError{err, http.StatusForbidden}
 }
+
+func Unauthorized(err error) error {
+	return ApiError{err, http.StatusUnauthorized}
+}

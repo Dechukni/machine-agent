@@ -19,11 +19,11 @@ type Cleaner struct {
 
 func init() {
 	flag.IntVar(&periodInMinutesFlag,
-		"Processes cleanup period(in minutes)",
+		"process-cleanup-period",
 		2,
-		"How often processs cleanup will happen")
-	flag.IntVar(&cleanupThresholdInMinutesFlag, "Processes lifetime(in minutes)", 60,
-		`How much time will dead and unused process live,
+		"How often processs cleanup will happen(in minutes)")
+	flag.IntVar(&cleanupThresholdInMinutesFlag, "process-lifetime", 60,
+		`How much time will dead and unused process live(in minutes),
 		if -1 passed then processes won't be cleaned at all`)
 }
 

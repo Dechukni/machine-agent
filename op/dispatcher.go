@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync/atomic"
 	"time"
+	"github.com/evoevodin/machine-agent/auth"
 )
 
 var (
@@ -17,7 +18,6 @@ var (
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
 		CheckOrigin: func(r *http.Request) bool {
-			// TODO add authentication
 			return true
 		},
 	}
@@ -26,6 +26,11 @@ var (
 )
 
 func registerChannel(w http.ResponseWriter, r *http.Request) error {
+	if auth.Enabled {
+		if err := auth.AuthenticateOnMaster(r); err != nil {
+			return err
+		}
+	}
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Couldn't establish websocket connection " + err.Error())

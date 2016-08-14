@@ -33,6 +33,7 @@ import (
 	"os/exec"
 	"regexp"
 	"unicode/utf8"
+	"github.com/evoevodin/machine-agent/auth"
 )
 
 type wsPty struct {
@@ -69,7 +70,6 @@ var (
 	}
 )
 
-
 func init() {
 	flag.StringVar(&cmdFlag, "cmd", "/bin/bash", "command to execute on slave side of the pty")
 }
@@ -95,33 +95,6 @@ func (wp *wsPty) Stop() {
 }
 
 func ptyHandler(w http.ResponseWriter, r *http.Request) {
-	// TODO enable authentication
-	//tokenParam := r.URL.Query().Get("token")
-	//if tokenParam == "" {
-	//	w.WriteHeader(http.StatusUnauthorized)
-	//	log.Printf("Authentication failed: missing token.\n")
-	//	return
-	//} else {
-	//	req, err := http.NewRequest("GET", apiEndpoint+"/machine/token/user/"+tokenParam, nil)
-	//	if err != nil {
-	//		log.Printf("Authentication failed: %s\n", err)
-	//		w.WriteHeader(http.StatusUnauthorized)
-	//		return
-	//	}
-	//	req.Header.Add("Authorization", tokenParam)
-	//	resp, err := http.DefaultClient.Do(req)
-	//	if err != nil {
-	//		log.Printf("Authentication failed: %s\n", err)
-	//		w.WriteHeader(http.StatusUnauthorized)
-	//		return
-	//	}
-	//	if resp.StatusCode != 200 {
-	//		log.Printf("Authentication failed, token: %s is invalid\n", tokenParam)
-	//		w.WriteHeader(http.StatusUnauthorized)
-	//		return
-	//	}
-	//}
-
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatalf("Websocket upgrade failed: %s\n", err)
@@ -238,6 +211,11 @@ func ptyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func ConnectToPtyHF(w http.ResponseWriter, r *http.Request) error {
+	if auth.Enabled {
+		if err := auth.AuthenticateOnMaster(r); err != nil {
+			return err
+		}
+	}
 	ptyHandler(w, r)
 	return nil
 }
