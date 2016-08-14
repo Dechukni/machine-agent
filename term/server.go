@@ -184,7 +184,9 @@ func ptyHandler(w http.ResponseWriter, r *http.Request) {
 					log.Printf("Invalid resize message: %s\n", err)
 				} else {
 					pty.Setsize(wp.Pty, uint16(size[1]), uint16(size[0]))
-					Activity.Notify()
+					if ActivityTrackingEnabled {
+						Activity.Notify()
+					}
 				}
 
 			case "data":
@@ -194,7 +196,9 @@ func ptyHandler(w http.ResponseWriter, r *http.Request) {
 					log.Printf("Invalid data message %s\n", err)
 				} else {
 					wp.Pty.Write([]byte(dat))
-					Activity.Notify()
+					if ActivityTrackingEnabled {
+						Activity.Notify()
+					}
 				}
 
 			default:

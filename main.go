@@ -63,7 +63,9 @@ func main() {
 	}
 
 	go process.NewCleaner().CleanupDeadUnusedProcesses()
-	go term.Activity.StartTracking()
+	if term.ActivityTrackingEnabled {
+		go term.Activity.StartTracking()
+	}
 
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 	http.Handle("/", router)

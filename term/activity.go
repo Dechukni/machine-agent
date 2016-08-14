@@ -1,6 +1,7 @@
 package term
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"os"
@@ -11,14 +12,22 @@ import (
 const threshold int64 = 60
 
 var (
-	Activity    = &WorkspaceActivity{}
-	apiEndpoint = os.Getenv("CHE_API_ENDPOINT")
-	workspaceId = os.Getenv("CHE_WORKSPACE_ID")
+	ActivityTrackingEnabled = false
+	Activity                = &WorkspaceActivity{}
+	apiEndpoint             = os.Getenv("CHE_API_ENDPOINT")
+	workspaceId             = os.Getenv("CHE_WORKSPACE_ID")
 )
 
 type WorkspaceActivity struct {
 	active         bool
 	lastUpdateTime int64
+}
+
+func init() {
+	flag.BoolVar(&ActivityTrackingEnabled,
+		"enable-activity-tracking",
+		false,
+		"Whether workspace master should be notified about terminal acitivity")
 }
 
 func (wa *WorkspaceActivity) Notify() {
