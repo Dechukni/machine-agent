@@ -330,7 +330,9 @@ func (process *MachineProcess) OnStderr(line string, time time.Time) {
 }
 
 func (mp *MachineProcess) Close() {
-	// Cleanup process resources before is dead event is sent
+	// Cleanup command resources
+	mp.command.Wait()
+	// Cleanup machine process resources before dead event is sent
 	mp.mutex.Lock()
 	mp.lastUsed = time.Now()
 	mp.Alive = false
