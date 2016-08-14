@@ -28,9 +28,9 @@ func init() {
 }
 
 func (c *Cleaner) CleanupDeadUnusedProcesses() {
-	ticker := time.NewTicker(c.period)
-	defer ticker.Stop()
 	if c.threshold >= 0 {
+		ticker := time.NewTicker(c.period)
+		defer ticker.Stop()
 		for range ticker.C {
 			deadPoint := time.Now().Add(-c.threshold)
 			processes.Lock()
