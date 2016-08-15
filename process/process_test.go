@@ -62,7 +62,6 @@ func startAndWaitTestProcess(t *testing.T) *process.MachineProcess {
 	})
 
 	go func() {
-		// process.Start blocks until start event is received by someone
 		for {
 			select {
 			case event := <-events:

@@ -193,16 +193,24 @@ func (process *MachineProcess) Start() error {
 	}
 
 	// before pumping is started publish process_started event
-	body := &ProcessStatusEventBody{
-		ProcessEventBody: ProcessEventBody{Pid: process.Pid},
-		NativePid:        process.NativePid,
-		Name:             process.Name,
-		CommandLine:      process.CommandLine,
-	}
-	process.notifySubs(op.NewEventNow(ProcessStartedEventType, body), ProcessStatusBit)
+	startPublished := make(chan bool)
+	go func () {
+		body := &ProcessStatusEventBody{
+			ProcessEventBody: ProcessEventBody{Pid: process.Pid},
+			NativePid:        process.NativePid,
+			Name:             process.Name,
+			CommandLine:      process.CommandLine,
+		}
+		process.notifySubs(op.NewEventNow(ProcessStartedEventType, body), ProcessStatusBit)
+		startPublished <- true
+	}();
 
-	// start pumping 'pumper.Pump' is blocking
-	go process.pumper.Pump()
+
+	// start pumping after start event is published 'pumper.Pump' is blocking
+	go func() {
+		<- startPublished
+		process.pumper.Pump()
+	}()
 
 	return nil
 }
