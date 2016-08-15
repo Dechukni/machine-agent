@@ -26,10 +26,12 @@ var (
 	}
 
 	serverAddress string
+	staticFlag    string
 )
 
 func init() {
 	flag.StringVar(&serverAddress, "addr", ":9000", "IP:PORT or :PORT the address to start the server on")
+	flag.StringVar(&staticFlag, "static", "./static/", "path to static content")
 }
 
 func main() {
@@ -67,7 +69,7 @@ func main() {
 		go term.Activity.StartTracking()
 	}
 
-	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
+	router.PathPrefix("/").Handler(http.FileServer(http.Dir(staticFlag)))
 	http.Handle("/", router)
 	server := &http.Server{
 		Handler:      router,
