@@ -1,0 +1,5 @@
+*.odt
+*.~lock
+node_modules/
+.idea/
+lib/

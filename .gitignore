@@ -2,3 +2,7 @@
 *.iml
 logs/
 machine-agent
+*.odt
+*.~lock
+node_modules/
+lib/
